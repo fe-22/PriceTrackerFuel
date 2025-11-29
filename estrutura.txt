@@ -83,9 +83,29 @@ ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAll5MbQTXQFJj9iGh3b//L1bNjbKg1UZuEXIh00hn1O
 fernandoalexthec@gmail.com
 
 
-
 git clone git@github.com:fe-22/PriceTrackerFuel.git
 cd PriceTrackerFuel
 python -m venv venv
 venv\Scripts\activate
 pip install -r requirements.txt
+
+gunicorn myproject_django.wsgi:application
+
+
+# 1. Apenas o conteúdo da pasta atual
+ls
+
+# 2. Procurar APENAS pelo wsgi.py
+Get-ChildItem -Filter "wsgi.py" -Recurse
+
+# 3. Ver estrutura básica (apenas 1 nível de profundidade)
+Get-ChildItem -Name
+
+# 4. Ou apenas:
+dir
+
+
+
+Start Command no Render para:
+
+gunicorn myproject_django.myproject.wsgi:application
