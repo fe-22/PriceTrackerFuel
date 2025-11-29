@@ -1,1 +1,0 @@
-chmod +x build.sh
