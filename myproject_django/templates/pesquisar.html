@@ -1,0 +1,48 @@
+{% extends 'myapp/base.html' %}
+
+{% block title %}Pesquisar Estabelecimentos - {{ block.super }}{% endblock %}
+
+{% block content %}
+<h2>🔍 Pesquisar Estabelecimentos</h2>
+
+<div class="search-box">
+    <form method="get">
+        <input type="text" name="q" value="{{ query }}" placeholder="Digite cidade, bairro ou nome do estabelecimento..." 
+               style="padding: 10px; width: 400px; font-size: 16px;">
+        <button type="submit" style="padding: 10px 20px; background: #2980b9; color: white; border: none; border-radius: 3px; font-size: 16px;">
+            Pesquisar
+        </button>
+    </form>
+</div>
+
+{% if query %}
+    <h3>Resultados para "{{ query }}":</h3>
+    
+    {% if resultados %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Nome</th>
+                    <th>Endereço</th>
+                    <th>Bairro</th>
+                    <th>Cidade</th>
+                    <th>UF</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for estab in resultados %}
+                <tr>
+                    <td>{{ estab.nome_fantasia }}</td>
+                    <td>{{ estab.endereco }}</td>
+                    <td>{{ estab.bairro }}</td>
+                    <td>{{ estab.cidade }}</td>
+                    <td>{{ estab.uf }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>Nenhum estabelecimento encontrado para "{{ query }}"</p>
+    {% endif %}
+{% endif %}
+{% endblock %}

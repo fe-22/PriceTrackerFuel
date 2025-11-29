@@ -1,0 +1,91 @@
+1. ⚙️ Estrutura do Projeto (Django)
+Seu projeto deve seguir a estrutura padrão do Django, mas com alguns diretórios chave:
+
+myproject_django/ (Diretório principal do projeto)
+
+manage.py
+
+myproject/ (Configurações do projeto)
+
+settings.py
+
+urls.py
+
+wsgi.py
+
+myapp/ (Onde ficará sua lógica de negócio)
+
+models.py (Estrutura do banco de dados)
+
+views.py (Lógica para manipular requisições)
+
+urls.py (Rotas da aplicação)
+
+templates/
+
+myapp/
+
+index.html (Seu template principal)
+
+data/ (Crie este diretório na raiz para o arquivo Excel)
+
+base_estabelecimentos.xlsx (Seu arquivo Excel)
+
+requirements.txt (Lista de dependências)
+
+
+
+
+# Criar o diretório principal
+mkdir myproject_django
+cd myproject_django
+
+# Criar ambiente virtual (opcional mas recomendado)
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+# venv\Scripts\activate  # Windows
+
+
+
+
+# 1. Ativar o ambiente virtual (se não estiver ativado)
+venv\Scripts\activate
+
+# 2. Instalar dependências
+pip install django pandas openpyxl python-dotenv
+
+# 3. Criar diretórios
+mkdir data
+mkdir templates
+mkdir templates\myapp
+mkdir static
+mkdir static\css
+mkdir static\js
+
+# 4. Criar requirements.txt (usando o conteúdo acima)
+
+# 5. Agora sim criar o app
+python manage.py startapp myapp
+
+# 6. Testar se está funcionando
+python manage.py runserver
+
+
+python manage.py startapp myapp
+
+
+python manage.py runserver
+python manage.py runserver
+
+
+Chave:
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAll5MbQTXQFJj9iGh3b//L1bNjbKg1UZuEXIh00hn1O 
+fernandoalexthec@gmail.com
+
+
+
+git clone git@github.com:fe-22/PriceTrackerFuel.git
+cd PriceTrackerFuel
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt

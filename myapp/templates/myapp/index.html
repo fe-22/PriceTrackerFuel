@@ -1,0 +1,76 @@
+﻿{% extends 'myapp/base.html' %}
+
+{% block content %}
+<div class="welcome">
+    <h2>Bem-vindo ao Sistema!</h2>
+    <p>Selecione uma opção no menu acima ou use os formulários abaixo para pesquisar.</p>
+</div>
+
+<div class="search-forms">
+    <div class="search-form">
+        <h3>🔍 Pesquisa por Nome</h3>
+        <form action="{% url 'pesquisar' %}" method="get">
+            <input type="hidden" name="tipo" value="nome">
+            <input type="text" name="q" placeholder="Digite o nome do estabelecimento...">
+            <button type="submit">Pesquisar por Nome</button>
+        </form>
+    </div>
+
+    <div class="search-form">
+        <h3>🏢 Pesquisa por CNPJ</h3>
+        <form action="{% url 'pesquisar' %}" method="get">
+            <input type="hidden" name="tipo" value="cnpj">
+            <input type="text" name="q" placeholder="Digite o CNPJ (com ou sem pontuação)...">
+            <button type="submit">Pesquisar por CNPJ</button>
+        </form>
+    </div>
+
+    <div class="search-form">
+        <h3>📍 Pesquisa por Cidade/UF</h3>
+        <form action="{% url 'pesquisar' %}" method="get">
+            <input type="hidden" name="tipo" value="cidade">
+            <input type="text" name="q" placeholder="Digite a cidade...">
+            <select name="uf">
+                <option value="">Todos os estados</option>
+                <option value="SP">São Paulo</option>
+                <option value="RJ">Rio de Janeiro</option>
+                <option value="MG">Minas Gerais</option>
+                <option value="ES">Espírito Santo</option>
+                <option value="PR">Paraná</option>
+                <option value="SC">Santa Catarina</option>
+                <option value="RS">Rio Grande do Sul</option>
+                <!-- Adicione mais estados conforme necessário -->
+            </select>
+            <button type="submit">Pesquisar por Localização</button>
+        </form>
+    </div>
+
+    <div class="search-form">
+        <h3>🏷️ Pesquisa por Bandeira</h3>
+        <form action="{% url 'pesquisar' %}" method="get">
+            <input type="hidden" name="tipo" value="bandeira">
+            <input type="text" name="q" placeholder="Digite a bandeira (Shell, Ipiranga, etc)...">
+            <button type="submit">Pesquisar por Bandeira</button>
+        </form>
+    </div>
+</div>
+
+<div class="features">
+    <div class="feature-item">
+        <h3>📊 Importação de Dados</h3>
+        <p>Importe dados de estabelecimentos via Excel</p>
+    </div>
+    <div class="feature-item">
+        <h3>🔍 Análise de Preços</h3>
+        <p>Pesquise e compare preços de combustíveis</p>
+    </div>
+    <div class="feature-item">
+        <h3>📈 Relatórios</h3>
+        <p>Gere relatórios e dashboards</p>
+    </div>
+    <div class="feature-item">
+        <h3>🗺️ Localização</h3>
+        <p>Visualize estabelecimentos por região</p>
+    </div>
+</div>
+{% endblock %}

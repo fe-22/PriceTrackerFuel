@@ -1,0 +1,256 @@
+﻿{% extends "myapp/base.html" %}
+
+{% block content %}
+<h1>🔍 Pesquisar Estabelecimentos</h1>
+<a href="{% url 'index' %}" class="back-link">← Voltar</a>
+
+<div class="search-box">
+    <form method="get">
+        <input type="text" name="q" value="{{ query }}" placeholder="Digite nome, cidade ou bairro...">
+        <button type="submit">Pesquisar</button>
+    </form>
+</div>
+
+<div class="results">
+    {% if query %}
+        <h3>Resultados para "{{ query }}":</h3>
+        
+        {% if resultados %}
+            <div class="results-count">
+                <strong>{{ resultados|length }} estabelecimento(s) encontrado(s)</strong>
+            </div>
+            
+            {% for estabelecimento in resultados %}
+            <div class="estabelecimento-card">
+                <div class="estabelecimento-header">
+                    <h4>{{ estabelecimento.nome_fantasia|default:estabelecimento.razao_social }}</h4>
+                    <span class="bandeira-tag">{{ estabelecimento.bandeira|default:"Sem bandeira" }}</span>
+                </div>
+                
+                <div class="estabelecimento-info">
+                    <p><strong>Razão Social:</strong> {{ estabelecimento.razao_social }}</p>
+                    <p><strong>CNPJ:</strong> {{ estabelecimento.cnpj }}</p>
+                    <p><strong>Endereço:</strong> {{ estabelecimento.endereco }}, {{ estabelecimento.bairro }} - {{ estabelecimento.cidade }}/{{ estabelecimento.uf }}</p>
+                    <p><strong>CEP:</strong> {{ estabelecimento.cep|default:"Não informado" }}</p>
+                </div>
+
+                <!-- SEÇÃO DE PREÇOS -->
+                <div class="precos-section">
+                    <h5>💰 Preços de Combustíveis:</h5>
+                    {% if estabelecimento.precos.all %}
+                        <div class="precos-grid">
+                            {% for preco in estabelecimento.precos.all %}
+                            <div class="preco-item">
+                                <span class="combustivel-tipo">{{ preco.get_tipo_combustivel_display }}</span>
+                                <span class="preco-valor">R$ {{ preco.preco }}</span>
+                                <small class="preco-data">{{ preco.data_coleta|date:"d/m/Y" }}</small>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="sem-precos">⏳ Aguardando atualização de preços...</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+            
+        {% else %}
+            <div class="no-results">
+                <p>❌ Nenhum estabelecimento encontrado para "{{ query }}".</p>
+                <p>Tente buscar por:</p>
+                <ul>
+                    <li>Nome do estabelecimento</li>
+                    <li>Cidade</li>
+                    <li>Bairro</li>
+                    <li>Bandeira (Shell, Ipiranga, BR, etc.)</li>
+                    <li>CNPJ (com ou sem pontuação)</li>
+                </ul>
+            </div>
+        {% endif %}
+    {% else %}
+        <div class="search-instructions">
+            <h4>💡 Como pesquisar:</h4>
+            <div class="search-tips">
+                <div class="tip">
+                    <strong>🔍 Por Nome:</strong>
+                    <p>Digite o nome do posto ou razão social</p>
+                </div>
+                <div class="tip">
+                    <strong>🏢 Por CNPJ:</strong>
+                    <p>Digite o CNPJ com ou sem pontuação</p>
+                </div>
+                <div class="tip">
+                    <strong>📍 Por Cidade:</strong>
+                    <p>Digite o nome da cidade</p>
+                </div>
+                <div class="tip">
+                    <strong>🏷️ Por Bandeira:</strong>
+                    <p>Digite a bandeira (Shell, Ipiranga, BR, etc.)</p>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<style>
+.search-box { 
+    background: #f8f9fa; 
+    padding: 20px; 
+    border-radius: 8px; 
+    margin: 20px 0; 
+    text-align: center;
+}
+.search-box input[type="text"] { 
+    padding: 12px; 
+    width: 400px; 
+    max-width: 100%; 
+    border: 2px solid #ddd; 
+    border-radius: 4px; 
+    font-size: 16px;
+}
+.search-box button { 
+    padding: 12px 24px; 
+    background: #27ae60; 
+    color: white; 
+    border: none; 
+    border-radius: 4px; 
+    cursor: pointer; 
+    font-size: 16px; 
+    margin-left: 10px;
+}
+.search-box button:hover { 
+    background: #219a52; 
+}
+
+.estabelecimento-card {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 15px 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.estabelecimento-header {
+    display: flex;
+    justify-content: between;
+    align-items: center;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+}
+
+.estabelecimento-header h4 {
+    margin: 0;
+    color: #2c3e50;
+    flex: 1;
+}
+
+.bandeira-tag {
+    background: #3498db;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.estabelecimento-info p {
+    margin: 5px 0;
+    color: #555;
+}
+
+.precos-section {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #eee;
+}
+
+.precos-section h5 {
+    margin: 0 0 10px 0;
+    color: #27ae60;
+}
+
+.precos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.preco-item {
+    background: #e8f5e8;
+    padding: 10px;
+    border-radius: 6px;
+    border-left: 4px solid #27ae60;
+}
+
+.combustivel-tipo {
+    display: block;
+    font-weight: bold;
+    color: #2c3e50;
+    font-size: 14px;
+}
+
+.preco-valor {
+    display: block;
+    font-size: 18px;
+    font-weight: bold;
+    color: #27ae60;
+    margin: 5px 0;
+}
+
+.preco-data {
+    color: #7f8c8d;
+    font-size: 11px;
+}
+
+.sem-precos {
+    color: #95a5a6;
+    font-style: italic;
+    text-align: center;
+    padding: 20px;
+}
+
+.results-count {
+    background: #e3f2fd;
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.no-results, .search-instructions {
+    background: #fff3cd;
+    padding: 20px;
+    border-radius: 8px;
+    text-align: center;
+    margin: 20px 0;
+}
+
+.search-tips {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.tip {
+    background: white;
+    padding: 15px;
+    border-radius: 6px;
+    border-left: 4px solid #3498db;
+}
+
+.back-link {
+    display: inline-block;
+    margin-bottom: 20px;
+    color: #3498db;
+    text-decoration: none;
+}
+
+.back-link:hover {
+    text-decoration: underline;
+}
+</style>
+{% endblock %}

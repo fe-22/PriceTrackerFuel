@@ -1,0 +1,57 @@
+﻿{% extends "myapp/base.html" %}
+
+{% block content %}
+<div class="import-container">
+    <h2>📤 Importar Dados do Excel</h2>
+    
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+    
+    <div class="upload-form">
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="arquivo_excel">Selecione o arquivo Excel:</label>
+                <input type="file" name="arquivo_excel" accept=".xlsx, .xls" required>
+            </div>
+            <button type="submit" class="btn-import">Importar Dados</button>
+        </form>
+    </div>
+    
+    <div class="instructions">
+        <h3>Instruções:</h3>
+        <ul>
+            <li>O arquivo deve estar no formato Excel (.xlsx ou .xls)</li>
+            <li>As colunas devem ter os seguintes nomes:</li>
+            <ul>
+                <li><strong>CNPJ</strong> - CNPJ do estabelecimento</li>
+                <li><strong>RAZAO_SOCIAL</strong> - Razão Social</li>
+                <li><strong>ENDERECO</strong> - Endereço completo</li>
+                <li><strong>MUNICIPIO</strong> - Município/Cidade</li>
+                <li><strong>UF</strong> - Estado (sigla)</li>
+                <li><strong>BANDEIRA</strong> - Bandeira do posto</li>
+            </ul>
+            <li>O sistema importará automaticamente os dados</li>
+        </ul>
+    </div>
+</div>
+
+<style>
+.import-container { max-width: 800px; margin: 0 auto; }
+.upload-form { background: #f8f9fa; padding: 30px; border-radius: 8px; margin: 20px 0; }
+.form-group { margin-bottom: 20px; }
+.form-group label { display: block; margin-bottom: 8px; font-weight: bold; }
+.form-group input[type="file"] { padding: 10px; border: 2px dashed #ddd; border-radius: 4px; width: 100%; }
+.btn-import { background: #27ae60; color: white; padding: 15px 30px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+.btn-import:hover { background: #219a52; }
+.instructions { background: #e3f2fd; padding: 20px; border-radius: 8px; }
+.alert { padding: 15px; border-radius: 4px; margin: 15px 0; }
+.alert-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+.alert-error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+</style>
+{% endblock %}

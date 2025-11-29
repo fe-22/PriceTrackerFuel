@@ -1,0 +1,53 @@
+﻿{% extends "myapp/base.html" %}
+
+{% block content %}
+<h1>Lista de Estabelecimentos</h1>
+<a href="{% url 'index' %}" class="back-link">← Voltar</a>
+
+<table>
+    <thead>
+        <tr>
+            <th>Nome Fantasia</th>
+            <th>CNPJ</th>
+            <th>Cidade</th>
+            <th>UF</th>
+            <th>Bandeira</th>
+            <th>Preços</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for estabelecimento in estabelecimentos %}
+        <tr>
+            <td>{{ estabelecimento.nome_fantasia|default:"-" }}</td>
+            <td>{{ estabelecimento.cnpj }}</td>
+            <td>{{ estabelecimento.cidade }}</td>
+            <td>{{ estabelecimento.uf }}</td>
+            <td>{{ estabelecimento.bandeira|default:"-" }}</td>
+            <td>
+                {% for preco in estabelecimento.precos.all|slice:":3" %}
+                    <div style="font-size: 12px; margin: 2px 0; padding: 2px 4px; background: #e8f5e8; border-radius: 3px;">
+                        <strong>{{ preco.get_tipo_combustivel_display }}</strong>: R$ {{ preco.preco }}
+                    </div>
+                {% empty %}
+                    <span style="color: #999; font-size: 12px;">Sem preços</span>
+                {% endfor %}
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="6">Nenhum estabelecimento cadastrado.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<p><strong>Total:</strong> {{ estabelecimentos|length }} estabelecimento(s)</p>
+
+<style>
+table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+th { background: #f2f2f2; }
+tr:hover { background: #f5f5f5; }
+.back-link { margin-bottom: 20px; display: inline-block; }
+</style>
+{% endblock %}
