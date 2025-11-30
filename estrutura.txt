@@ -79,7 +79,7 @@ python manage.py runserver
 
 
 Chave:
-ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAll5MbQTXQFJj9iGh3b//L1bNjbKg1UZuEXIh00hn1O 
+tdpj5f*gww^wmyzlzrpf7))jn2n3r+h*vw3dub@@q4!vqvj#ip 
 fernandoalexthec@gmail.com
 
 
@@ -109,3 +109,14 @@ dir
 Start Command no Render para:
 
 gunicorn myproject_django.myproject.wsgi:application
+
+
+
+# Remove todos os arquivos do venv do tracking
+git rm -r --cached venv/
+
+# Remove arquivos de cache do Python
+git rm -r --cached myproject/__pycache__/
+
+# Remove o .env (não deve ser commitado)
+git rm --cached myproject/.env
