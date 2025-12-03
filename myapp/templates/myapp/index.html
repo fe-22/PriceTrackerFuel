@@ -1,76 +1,609 @@
-﻿{% extends 'myapp/base.html' %}
+﻿<!-- templates/myapp/index.html -->
+{% extends 'myapp/base.html' %}
+
+{% block title %}PriceTracker Fuel - Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .chart-container {
+        position: relative;
+        height: 300px;
+        width: 100%;
+    }
+    
+    .price-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    .combustivel-legend {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 2px;
+        margin-right: 5px;
+    }
+    
+    .gasolina-color { background-color: #28a745; }
+    .gasolina-aditivada-color { background-color: #20c997; }
+    .etanol-color { background-color: #007bff; }
+    .diesel-color { background-color: #6c757d; }
+    .diesel-s10-color { background-color: #343a40; }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="welcome">
-    <h2>Bem-vindo ao Sistema!</h2>
-    <p>Selecione uma opção no menu acima ou use os formulários abaixo para pesquisar.</p>
+<div class="container-fluid">
+    <!-- Dashboard Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-white bg-primary mb-3">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title">TOTAL DE POSTOS</h6>
+                            <h2 class="mb-0">{{ total_postos|default:"0" }}</h2>
+                        </div>
+                        <i class="fas fa-gas-pump fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card text-white bg-success mb-3">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title">PREÇOS REGISTRADOS</h6>
+                            <h2 class="mb-0">{{ total_precos|default:"0" }}</h2>
+                        </div>
+                        <i class="fas fa-chart-line fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card text-white bg-warning mb-3">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title">CIDADES</h6>
+                            <h2 class="mb-0">{{ cidades_unicas|default:"0" }}</h2>
+                        </div>
+                        <i class="fas fa-city fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card text-white bg-info mb-3">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title">MÉDIA GASOLINA</h6>
+                            <h2 class="mb-0">R$ {{ media_gasolina|default:"0.00" }}</h2>
+                        </div>
+                        <i class="fas fa-gas-pump fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cards de Preços Médios -->
+    <div class="row mb-4">
+        <div class="col-md-2 col-6">
+            <div class="card border-success mb-3">
+                <div class="card-body text-center p-2">
+                    <small class="text-muted d-block">Gasolina Comum</small>
+                    <h5 class="text-success mb-0">R$ {{ media_gasolina_comum|default:"0.00" }}</h5>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2 col-6">
+            <div class="card border-info mb-3">
+                <div class="card-body text-center p-2">
+                    <small class="text-muted d-block">Gasolina Aditivada</small>
+                    <h5 class="text-info mb-0">R$ {{ media_gasolina_aditivada|default:"0.00" }}</h5>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2 col-6">
+            <div class="card border-primary mb-3">
+                <div class="card-body text-center p-2">
+                    <small class="text-muted d-block">Etanol</small>
+                    <h5 class="text-primary mb-0">R$ {{ media_etanol|default:"0.00" }}</h5>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2 col-6">
+            <div class="card border-secondary mb-3">
+                <div class="card-body text-center p-2">
+                    <small class="text-muted d-block">Diesel</small>
+                    <h5 class="text-secondary mb-0">R$ {{ media_diesel|default:"0.00" }}</h5>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2 col-6">
+            <div class="card border-dark mb-3">
+                <div class="card-body text-center p-2">
+                    <small class="text-muted d-block">Diesel S10</small>
+                    <h5 class="text-dark mb-0">R$ {{ media_diesel_s10|default:"0.00" }}</h5>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2 col-6">
+            <div class="card border-warning mb-3">
+                <div class="card-body text-center p-2">
+                    <small class="text-muted d-block">GNV</small>
+                    <h5 class="text-warning mb-0">R$ {{ media_gnv|default:"0.00" }}</h5>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Busca Rápida -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header bg-gradient-primary text-white">
+                    <h4 class="mb-0"><i class="fas fa-search"></i> Busca Rápida de Postos</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100 text-center">
+                                <div class="card-body">
+                                    <i class="fas fa-map-marker-alt fa-3x text-primary mb-3"></i>
+                                    <h5>Busca por Endereço</h5>
+                                    <p class="text-muted">Encontre postos por rua, bairro ou cidade</p>
+                                    <a href="{% url 'buscar_por_endereco' %}" class="btn btn-primary">
+                                        <i class="fas fa-search-location"></i> Buscar
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100 text-center">
+                                <div class="card-body">
+                                    <i class="fas fa-gas-pump fa-3x text-success mb-3"></i>
+                                    <h5>Pesquisa Avançada</h5>
+                                    <p class="text-muted">Busque por CNPJ, bandeira ou nome</p>
+                                    <a href="{% url 'pesquisar' %}" class="btn btn-success">
+                                        <i class="fas fa-search"></i> Pesquisar
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100 text-center">
+                                <div class="card-body">
+                                    <i class="fas fa-map fa-3x text-danger mb-3"></i>
+                                    <h5>Visualizar no Mapa</h5>
+                                    <p class="text-muted">Veja todos os postos em um mapa interativo</p>
+                                    <a href="{% url 'mapa_postos' %}" class="btn btn-danger">
+                                        <i class="fas fa-map-marked-alt"></i> Abrir Mapa
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard de Evolução de Preços -->
+    <div class="row">
+        <div class="col-md-8 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header bg-gradient-success text-white d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0"><i class="fas fa-chart-line"></i> Evolução de Preços</h4>
+                    <div class="d-flex align-items-center">
+                        <select id="tipoGrafico" class="form-select form-select-sm w-auto me-2">
+                            <option value="todos">Todos os Combustíveis</option>
+                            <option value="gasolina">Gasolina</option>
+                            <option value="gasolina_aditivada">Gasolina Aditivada</option>
+                            <option value="etanol">Etanol</option>
+                            <option value="diesel">Diesel</option>
+                            <option value="diesel_s10">Diesel S10</option>
+                        </select>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="mostrarLegenda">
+                            <label class="form-check-label text-white" for="mostrarLegenda">Legenda</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="evolucaoPrecosChart"></canvas>
+                    </div>
+                    <div id="legendaCombustiveis" class="mt-3 d-none">
+                        <div class="row">
+                            <div class="col-auto">
+                                <span class="combustivel-legend gasolina-color"></span>
+                                <small>Gasolina Comum</small>
+                            </div>
+                            <div class="col-auto">
+                                <span class="combustivel-legend gasolina-aditivada-color"></span>
+                                <small>Gasolina Aditivada</small>
+                            </div>
+                            <div class="col-auto">
+                                <span class="combustivel-legend etanol-color"></span>
+                                <small>Etanol</small>
+                            </div>
+                            <div class="col-auto">
+                                <span class="combustivel-legend diesel-color"></span>
+                                <small>Diesel</small>
+                            </div>
+                            <div class="col-auto">
+                                <span class="combustivel-legend diesel-s10-color"></span>
+                                <small>Diesel S10</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header bg-gradient-info text-white">
+                    <h4 class="mb-0"><i class="fas fa-fire"></i> Postos Mais Baratos</h4>
+                    <small class="opacity-75">Gasolina Comum</small>
+                </div>
+                <div class="card-body">
+                    <div class="list-group">
+                        {% for posto in postos_baratos %}
+                        <a href="{% url 'detalhe_posto' posto.id %}" class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between align-items-start">
+                                <div class="me-2">
+                                    <h6 class="mb-1">{{ posto.nome_fantasia|truncatechars:20 }}</h6>
+                                    <small class="text-muted">
+                                        <i class="fas fa-map-marker-alt"></i> {{ posto.cidade }}/{{ posto.uf }}
+                                        {% if posto.bandeira %}
+                                        <span class="badge bg-secondary ms-1">{{ posto.bandeira }}</span>
+                                        {% endif %}
+                                    </small>
+                                </div>
+                                <div class="text-end">
+                                    <strong class="text-success d-block">R$ {{ posto.preco_minimo }}</strong>
+                                    <small class="text-muted">Gasolina</small>
+                                </div>
+                            </div>
+                            {% if posto.outros_precos %}
+                            <div class="mt-2">
+                                {% for tipo, preco in posto.outros_precos.items %}
+                                <span class="price-badge 
+                                    {% if tipo == 'ETANOL' %}bg-primary
+                                    {% elif tipo == 'DIESEL' %}bg-secondary
+                                    {% elif tipo == 'DIESEL_S10' %}bg-dark
+                                    {% elif tipo == 'GASOLINA_ADITIVADA' %}bg-info
+                                    {% else %}bg-success{% endif %} text-white me-1">
+                                    {% if tipo == 'GASOLINA_COMUM' %}G
+                                    {% elif tipo == 'GASOLINA_ADITIVADA' %}GA
+                                    {% elif tipo == 'ETANOL' %}E
+                                    {% elif tipo == 'DIESEL' %}D
+                                    {% elif tipo == 'DIESEL_S10' %}S10
+                                    {% else %}{{ tipo|slice:":3" }}{% endif %}: R$ {{ preco }}
+                                </span>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </a>
+                        {% empty %}
+                        <div class="text-center py-3">
+                            <i class="fas fa-info-circle fa-2x text-muted mb-2"></i>
+                            <p class="text-muted">Nenhum preço registrado ainda</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Postos em Destaque -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header bg-gradient-warning text-white">
+                    <h4 class="mb-0"><i class="fas fa-star"></i> Postos em Destaque</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for posto in postos_destaque %}
+                        <div class="col-md-3 mb-3">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h6 class="card-title">
+                                        <i class="fas fa-gas-pump text-warning"></i>
+                                        {{ posto.nome_fantasia|truncatechars:25 }}
+                                    </h6>
+                                    <p class="card-text small mb-2">
+                                        <i class="fas fa-map-marker-alt text-danger"></i>
+                                        {{ posto.cidade }}/{{ posto.uf }}
+                                        {% if posto.bandeira %}
+                                        <span class="badge bg-dark">{{ posto.bandeira }}</span>
+                                        {% endif %}
+                                    </p>
+                                    
+                                    {% if posto.precos_recentes %}
+                                    <div class="mt-3">
+                                        {% for tipo, preco_info in posto.precos_recentes.items %}
+                                            {% if preco_info %}
+                                            <div class="d-flex justify-content-between small mb-1">
+                                                <span>
+                                                    {% if tipo == 'GASOLINA_COMUM' %}
+                                                        <span class="badge bg-success">Gasolina</span>
+                                                    {% elif tipo == 'GASOLINA_ADITIVADA' %}
+                                                        <span class="badge bg-info">Gas. Aditivada</span>
+                                                    {% elif tipo == 'ETANOL' %}
+                                                        <span class="badge bg-primary">Etanol</span>
+                                                    {% elif tipo == 'DIESEL' %}
+                                                        <span class="badge bg-secondary">Diesel</span>
+                                                    {% elif tipo == 'DIESEL_S10' %}
+                                                        <span class="badge bg-dark">Diesel S10</span>
+                                                    {% elif tipo == 'GNV' %}
+                                                        <span class="badge bg-warning">GNV</span>
+                                                    {% endif %}
+                                                </span>
+                                                <strong class="text-success">R$ {{ preco_info.preco }}</strong>
+                                            </div>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                    
+                                    <div class="mt-3">
+                                        <a href="{% url 'detalhe_posto' posto.id %}" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-info-circle"></i> Detalhes
+                                        </a>
+                                        {% if posto.coordenadas %}
+                                        <a href="https://maps.google.com/?q={{ posto.latitude }},{{ posto.longitude }}" 
+                                           target="_blank" class="btn btn-sm btn-outline-success">
+                                            <i class="fas fa-map-marker-alt"></i> Mapa
+                                        </a>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="col-12 text-center py-4">
+                            <i class="fas fa-gas-pump fa-3x text-muted mb-3"></i>
+                            <h5>Nenhum posto em destaque</h5>
+                            <p class="text-muted">Importe dados ou adicione preços para visualizar postos</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
-<div class="search-forms">
-    <div class="search-form">
-        <h3>🔍 Pesquisa por Nome</h3>
-        <form action="{% url 'pesquisar' %}" method="get">
-            <input type="hidden" name="tipo" value="nome">
-            <input type="text" name="q" placeholder="Digite o nome do estabelecimento...">
-            <button type="submit">Pesquisar por Nome</button>
-        </form>
-    </div>
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <div class="search-form">
-        <h3>🏢 Pesquisa por CNPJ</h3>
-        <form action="{% url 'pesquisar' %}" method="get">
-            <input type="hidden" name="tipo" value="cnpj">
-            <input type="text" name="q" placeholder="Digite o CNPJ (com ou sem pontuação)...">
-            <button type="submit">Pesquisar por CNPJ</button>
-        </form>
-    </div>
-
-    <div class="search-form">
-        <h3>📍 Pesquisa por Cidade/UF</h3>
-        <form action="{% url 'pesquisar' %}" method="get">
-            <input type="hidden" name="tipo" value="cidade">
-            <input type="text" name="q" placeholder="Digite a cidade...">
-            <select name="uf">
-                <option value="">Todos os estados</option>
-                <option value="SP">São Paulo</option>
-                <option value="RJ">Rio de Janeiro</option>
-                <option value="MG">Minas Gerais</option>
-                <option value="ES">Espírito Santo</option>
-                <option value="PR">Paraná</option>
-                <option value="SC">Santa Catarina</option>
-                <option value="RS">Rio Grande do Sul</option>
-                <!-- Adicione mais estados conforme necessário -->
-            </select>
-            <button type="submit">Pesquisar por Localização</button>
-        </form>
-    </div>
-
-    <div class="search-form">
-        <h3>🏷️ Pesquisa por Bandeira</h3>
-        <form action="{% url 'pesquisar' %}" method="get">
-            <input type="hidden" name="tipo" value="bandeira">
-            <input type="text" name="q" placeholder="Digite a bandeira (Shell, Ipiranga, etc)...">
-            <button type="submit">Pesquisar por Bandeira</button>
-        </form>
-    </div>
-</div>
-
-<div class="features">
-    <div class="feature-item">
-        <h3>📊 Importação de Dados</h3>
-        <p>Importe dados de estabelecimentos via Excel</p>
-    </div>
-    <div class="feature-item">
-        <h3>🔍 Análise de Preços</h3>
-        <p>Pesquise e compare preços de combustíveis</p>
-    </div>
-    <div class="feature-item">
-        <h3>📈 Relatórios</h3>
-        <p>Gere relatórios e dashboards</p>
-    </div>
-    <div class="feature-item">
-        <h3>🗺️ Localização</h3>
-        <p>Visualize estabelecimentos por região</p>
-    </div>
-</div>
+<script>
+// Evolução de Preços
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('evolucaoPrecosChart').getContext('2d');
+    
+    // Dados completos com todos os combustíveis
+    const dadosTodos = {
+        labels: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'],
+        datasets: [
+            {
+                label: 'Gasolina Comum',
+                data: [5.80, 5.85, 5.90, 5.95, 5.89, 5.87, 5.83, 5.79, 5.75, 5.72, 5.70, 5.68],
+                borderColor: '#28a745',
+                backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                fill: true,
+                tension: 0.4,
+                borderWidth: 2
+            },
+            {
+                label: 'Gasolina Aditivada',
+                data: [6.05, 6.10, 6.15, 6.20, 6.14, 6.12, 6.08, 6.04, 6.00, 5.97, 5.95, 5.93],
+                borderColor: '#20c997',
+                backgroundColor: 'rgba(32, 201, 151, 0.1)',
+                fill: true,
+                tension: 0.4,
+                borderWidth: 2
+            },
+            {
+                label: 'Etanol',
+                data: [4.20, 4.25, 4.30, 4.28, 4.26, 4.24, 4.22, 4.20, 4.18, 4.16, 4.14, 4.12],
+                borderColor: '#007bff',
+                backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                fill: true,
+                tension: 0.4,
+                borderWidth: 2
+            },
+            {
+                label: 'Diesel',
+                data: [5.50, 5.55, 5.60, 5.58, 5.56, 5.54, 5.52, 5.50, 5.48, 5.46, 5.44, 5.42],
+                borderColor: '#6c757d',
+                backgroundColor: 'rgba(108, 117, 125, 0.1)',
+                fill: true,
+                tension: 0.4,
+                borderWidth: 2
+            },
+            {
+                label: 'Diesel S10',
+                data: [5.65, 5.70, 5.75, 5.73, 5.71, 5.69, 5.67, 5.65, 5.63, 5.61, 5.59, 5.57],
+                borderColor: '#343a40',
+                backgroundColor: 'rgba(52, 58, 64, 0.1)',
+                fill: true,
+                tension: 0.4,
+                borderWidth: 2
+            }
+        ]
+    };
+    
+    const dadosGasolina = {
+        labels: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'],
+        datasets: [
+            {
+                label: 'Gasolina Comum',
+                data: [5.80, 5.85, 5.90, 5.95, 5.89, 5.87, 5.83, 5.79, 5.75, 5.72, 5.70, 5.68],
+                borderColor: '#28a745',
+                backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                fill: true,
+                tension: 0.4,
+                borderWidth: 2
+            },
+            {
+                label: 'Gasolina Aditivada',
+                data: [6.05, 6.10, 6.15, 6.20, 6.14, 6.12, 6.08, 6.04, 6.00, 5.97, 5.95, 5.93],
+                borderColor: '#20c997',
+                backgroundColor: 'rgba(32, 201, 151, 0.1)',
+                fill: true,
+                tension: 0.4,
+                borderWidth: 2
+            }
+        ]
+    };
+    
+    const dadosGasolinaAditivada = {
+        labels: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'],
+        datasets: [{
+            label: 'Gasolina Aditivada',
+            data: [6.05, 6.10, 6.15, 6.20, 6.14, 6.12, 6.08, 6.04, 6.00, 5.97, 5.95, 5.93],
+            borderColor: '#20c997',
+            backgroundColor: 'rgba(32, 201, 151, 0.1)',
+            fill: true,
+            tension: 0.4,
+            borderWidth: 2
+        }]
+    };
+    
+    const dadosEtanol = {
+        labels: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'],
+        datasets: [{
+            label: 'Etanol',
+            data: [4.20, 4.25, 4.30, 4.28, 4.26, 4.24, 4.22, 4.20, 4.18, 4.16, 4.14, 4.12],
+            borderColor: '#007bff',
+            backgroundColor: 'rgba(0, 123, 255, 0.1)',
+            fill: true,
+            tension: 0.4,
+            borderWidth: 2
+        }]
+    };
+    
+    const dadosDiesel = {
+        labels: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'],
+        datasets: [{
+            label: 'Diesel',
+            data: [5.50, 5.55, 5.60, 5.58, 5.56, 5.54, 5.52, 5.50, 5.48, 5.46, 5.44, 5.42],
+            borderColor: '#6c757d',
+            backgroundColor: 'rgba(108, 117, 125, 0.1)',
+            fill: true,
+            tension: 0.4,
+            borderWidth: 2
+        }]
+    };
+    
+    const dadosDieselS10 = {
+        labels: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'],
+        datasets: [{
+            label: 'Diesel S10',
+            data: [5.65, 5.70, 5.75, 5.73, 5.71, 5.69, 5.67, 5.65, 5.63, 5.61, 5.59, 5.57],
+            borderColor: '#343a40',
+            backgroundColor: 'rgba(52, 58, 64, 0.1)',
+            fill: true,
+            tension: 0.4,
+            borderWidth: 2
+        }]
+    };
+    
+    const chart = new Chart(ctx, {
+        type: 'line',
+        data: dadosTodos,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false, // Desativa a legenda padrão
+                    position: 'top',
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `${context.dataset.label}: R$ ${context.raw.toFixed(3)}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    ticks: {
+                        callback: function(value) {
+                            return 'R$ ' + value.toFixed(2);
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: 'Preço (R$)'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Mês'
+                    }
+                }
+            },
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            }
+        }
+    });
+    
+    // Mudar tipo de gráfico
+    document.getElementById('tipoGrafico').addEventListener('change', function(e) {
+        switch(e.target.value) {
+            case 'todos':
+                chart.data = dadosTodos;
+                break;
+            case 'gasolina':
+                chart.data = dadosGasolina;
+                break;
+            case 'gasolina_aditivada':
+                chart.data = dadosGasolinaAditivada;
+                break;
+            case 'etanol':
+                chart.data = dadosEtanol;
+                break;
+            case 'diesel':
+                chart.data = dadosDiesel;
+                break;
+            case 'diesel_s10':
+                chart.data = dadosDieselS10;
+                break;
+        }
+        chart.update();
+    });
+    
+    // Mostrar/ocultar legenda
+    document.getElementById('mostrarLegenda').addEventListener('change', function(e) {
+        const legenda = document.getElementById('legendaCombustiveis');
+        if (e.target.checked) {
+            legenda.classList.remove('d-none');
+        } else {
+            legenda.classList.add('d-none');
+        }
+    });
+});
+</script>
 {% endblock %}

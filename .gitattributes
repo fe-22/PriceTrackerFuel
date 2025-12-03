@@ -1,0 +1,20 @@
+﻿# Tratar arquivos binários
+*.pyc binary
+*.pyo binary
+*.pyd binary
+db.sqlite3 binary
+*.xlsb binary
+*.xlsx binary
+
+# Linguagem para GitHub
+*.py linguist-detectable=true
+*.html linguist-detectable=true
+*.css linguist-detectable=true
+*.js linguist-detectable=true
+
+# Normalização de fim de linha
+*.py text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.js text eol=lf
+*.md text eol=lf

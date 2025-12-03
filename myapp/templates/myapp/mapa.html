@@ -1,0 +1,309 @@
+<!-- templates/myapp/mapa.html -->
+{% extends 'myapp/base.html' %}
+
+{% block title %}Mapa de Postos - PriceTracker Fuel{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+    #map {
+        height: 600px;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .leaflet-container {
+        font-family: inherit;
+    }
+    .map-info {
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+    .map-marker {
+        color: #e74c3c;
+        font-size: 24px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="map-info">
+                <h3><i class="fas fa-map-marked-alt"></i> Mapa de Postos</h3>
+                <p class="text-muted mb-0">
+                    Visualize a localização de {{ total_postos }} postos no mapa. 
+                    Clique nos marcadores para ver detalhes.
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-9">
+            <div id="map"></div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-filter"></i> Filtros</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Tipo de Combustível</label>
+                        <select class="form-select" id="filterCombustivel">
+                            <option value="all">Todos</option>
+                            <option value="GASOLINA_COMUM">Gasolina Comum</option>
+                            <option value="ETANOL">Etanol</option>
+                            <option value="DIESEL">Diesel</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Bandeira</label>
+                        <select class="form-select" id="filterBandeira">
+                            <option value="all">Todas</option>
+                            <option value="Shell">Shell</option>
+                            <option value="Ipiranga">Ipiranga</option>
+                            <option value="BR">BR</option>
+                            <option value="Petrobras">Petrobras</option>
+                        </select>
+                    </div>
+                    
+                    <button class="btn btn-primary w-100" id="applyFilters">
+                        <i class="fas fa-sync-alt"></i> Aplicar Filtros
+                    </button>
+                    
+                    <hr>
+                    
+                    <div class="mt-3">
+                        <h6><i class="fas fa-info-circle"></i> Legenda</h6>
+                        <div class="d-flex align-items-center mb-2">
+                            <i class="fas fa-map-marker-alt text-danger me-2"></i>
+                            <small>Posto com preços</small>
+                        </div>
+                        <div class="d-flex align-items-center mb-2">
+                            <i class="fas fa-map-marker-alt text-secondary me-2"></i>
+                            <small>Posto sem preços</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card shadow mt-3">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-list"></i> Postos Próximos</h5>
+                </div>
+                <div class="card-body">
+                    <div id="postosLista" style="max-height: 300px; overflow-y: auto;">
+                        {% for posto in postos %}
+                        <div class="posto-item mb-2 p-2 border rounded" 
+                             data-id="{{ posto.id }}" 
+                             data-lat="{{ posto.latitude }}"
+                             data-lng="{{ posto.longitude }}">
+                            <div class="d-flex justify-content-between">
+                                <strong class="small">{{ posto.nome|truncatechars:25 }}</strong>
+                                <button class="btn btn-sm btn-outline-primary btn-ver-posto" 
+                                        data-id="{{ posto.id }}">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                            <small class="text-muted">
+                                {{ posto.cidade }}/{{ posto.uf }}
+                            </small>
+                        </div>
+                        {% empty %}
+                        <p class="text-center text-muted">Nenhum posto encontrado</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Configuração inicial do mapa (centro no Brasil)
+    const map = L.map('map').setView([-15.7797, -47.9297], 4);
+    
+    // Adiciona tile layer (mapa base)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 18,
+    }).addTo(map);
+    
+    // Array para armazenar os marcadores
+    let markers = [];
+    
+    // Dados dos postos do Django
+    const postos = {{ postos|safe }};
+    
+    // Função para criar marcador
+    function createMarker(posto) {
+        const hasPrices = posto.precos && Object.keys(posto.precos).length > 0;
+        const markerColor = hasPrices ? 'red' : 'gray';
+        
+        // Ícone personalizado
+        const icon = L.divIcon({
+            className: 'custom-marker',
+            html: `<i class="fas fa-gas-pump fa-2x" style="color: ${markerColor};"></i>`,
+            iconSize: [30, 30],
+            iconAnchor: [15, 30],
+            popupAnchor: [0, -30]
+        });
+        
+        // Cria o marcador
+        const marker = L.marker([posto.latitude, posto.longitude], { icon: icon })
+            .addTo(map);
+        
+        // Popup com informações
+        let popupContent = `
+            <div style="min-width: 200px;">
+                <h6><i class="fas fa-gas-pump"></i> ${posto.nome}</h6>
+                <p><small><i class="fas fa-map-marker-alt"></i> ${posto.endereco}</small></p>
+                <p><small>${posto.cidade}/${posto.uf}</small></p>
+                <hr>
+        `;
+        
+        if (hasPrices) {
+            popupContent += '<h6><i class="fas fa-dollar-sign"></i> Preços:</h6>';
+            for (const [tipo, preco] of Object.entries(posto.precos)) {
+                if (preco) {
+                    const tipoNome = tipo.replace('_', ' ').toLowerCase();
+                    popupContent += `
+                        <div class="d-flex justify-content-between">
+                            <span>${tipoNome}</span>
+                            <strong class="text-success">R$ ${preco}</strong>
+                        </div>
+                    `;
+                }
+            }
+        } else {
+            popupContent += '<p class="text-muted"><small>Sem preços registrados</small></p>';
+        }
+        
+        popupContent += `
+            <hr>
+            <a href="/posto/${posto.id}/" class="btn btn-sm btn-primary w-100">
+                <i class="fas fa-info-circle"></i> Ver Detalhes
+            </a>
+        </div>`;
+        
+        marker.bindPopup(popupContent);
+        
+        // Adiciona evento de clique nos itens da lista
+        $(`.posto-item[data-id="${posto.id}"]`).click(function() {
+            marker.openPopup();
+            map.setView([posto.latitude, posto.longitude], 14);
+        });
+        
+        // Botão "ver" na lista
+        $(`.btn-ver-posto[data-id="${posto.id}"]`).click(function(e) {
+            e.stopPropagation();
+            marker.openPopup();
+            map.setView([posto.latitude, posto.longitude], 14);
+        });
+        
+        return marker;
+    }
+    
+    // Adiciona todos os marcadores
+    postos.forEach(posto => {
+        if (posto.latitude && posto.longitude) {
+            const marker = createMarker(posto);
+            markers.push({
+                marker: marker,
+                posto: posto
+            });
+        }
+    });
+    
+    // Filtros
+    $('#applyFilters').click(function() {
+        const combustivel = $('#filterCombustivel').val();
+        const bandeira = $('#filterBandeira').val();
+        
+        // Remove todos os marcadores
+        markers.forEach(item => {
+            map.removeLayer(item.marker);
+        });
+        
+        // Filtra e adiciona novamente
+        const filteredMarkers = markers.filter(item => {
+            const posto = item.posto;
+            
+            // Filtro por bandeira
+            if (bandeira !== 'all' && posto.bandeira !== bandeira) {
+                return false;
+            }
+            
+            // Filtro por combustível
+            if (combustivel !== 'all' && (!posto.precos || !posto.precos[combustivel])) {
+                return false;
+            }
+            
+            return true;
+        });
+        
+        // Adiciona marcadores filtrados
+        filteredMarkers.forEach(item => {
+            map.addLayer(item.marker);
+        });
+        
+        // Atualiza lista
+        updateList(filteredMarkers);
+    });
+    
+    function updateList(filteredMarkers) {
+        const lista = $('#postosLista');
+        lista.empty();
+        
+        if (filteredMarkers.length === 0) {
+            lista.html('<p class="text-center text-muted">Nenhum posto encontrado com os filtros</p>');
+            return;
+        }
+        
+        filteredMarkers.forEach(item => {
+            const posto = item.posto;
+            const div = $(`
+                <div class="posto-item mb-2 p-2 border rounded" 
+                     data-id="${posto.id}" 
+                     data-lat="${posto.latitude}"
+                     data-lng="${posto.longitude}">
+                    <div class="d-flex justify-content-between">
+                        <strong class="small">${posto.nome.substring(0, 25)}</strong>
+                        <button class="btn btn-sm btn-outline-primary btn-ver-posto" 
+                                data-id="${posto.id}">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                    <small class="text-muted">
+                        ${posto.cidade}/${posto.uf}
+                    </small>
+                </div>
+            `);
+            
+            div.click(function() {
+                item.marker.openPopup();
+                map.setView([posto.latitude, posto.longitude], 14);
+            });
+            
+            div.find('.btn-ver-posto').click(function(e) {
+                e.stopPropagation();
+                item.marker.openPopup();
+                map.setView([posto.latitude, posto.longitude], 14);
+            });
+            
+            lista.append(div);
+        });
+    }
+});
+</script>
+{% endblock %}
