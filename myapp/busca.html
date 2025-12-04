@@ -1,0 +1,19 @@
+<!-- busca.html -->
+<form method="GET" action="{% url 'buscar_posto' %}">
+    <input type="text" name="q" placeholder="Buscar por endereço ou nome..." value="{{ request.GET.q }}">
+    <button type="submit">Buscar</button>
+</form>
+
+{% if postos %}
+    <h3>Resultados:</h3>
+    <ul>
+    {% for posto in postos %}
+        <li>
+            <strong>{{ posto.nome }}</strong><br>
+            {{ posto.endereco }}<br>
+            Gasolina: R$ {{ posto.preco_gasolina }}<br>
+            Etanol: R$ {{ posto.preco_etanol }}
+        </li>
+    {% endfor %}
+    </ul>
+{% endif %}

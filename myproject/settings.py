@@ -11,11 +11,16 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-substitua-por-uma-cha
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = [
-    'pricetrackerfuel.onrender.com',  # ← CORRIGIDO: sem https://
-    'localhost', 
-    '127.0.0.1'
-]
+# Configura ALLOWED_HOSTS baseado no DEBUG
+if not DEBUG:
+    ALLOWED_HOSTS = [
+        '.onrender.com',
+        'pricetrackerfuel.onrender.com',
+        'localhost', 
+        '127.0.0.1'
+    ]
+else:
+    ALLOWED_HOSTS = ['*']
 
 # Application definition
 INSTALLED_APPS = [
@@ -25,7 +30,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'myapp',  # ← SE você tem um app chamado myapp
+    'myapp',
     'whitenoise.runserver_nostatic',
 ]
 
@@ -43,13 +48,28 @@ MIDDLEWARE = [
 ROOT_URLCONF = 'myproject.urls'
 WSGI_APPLICATION = 'myproject.wsgi.application'
 
-# Database
-DATABASES = {
-    'default': dj_database_url.config(
-        default='sqlite:///db.sqlite3',
-        conn_max_age=600
-    )
-}
+# Database - CONFIGURAÇÃO CORRIGIDA
+# Pegando DATABASE_URL do ambiente, com fallback para SQLite
+DATABASE_URL = os.environ.get('DATABASE_URL', 'sqlite:///db.sqlite3')
+
+# Configuração condicional para SSL
+if DATABASE_URL.startswith('postgres://'):
+    # Para PostgreSQL (Render), usa SSL
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=DATABASE_URL,
+            conn_max_age=600,
+            ssl_require=True
+        )
+    }
+else:
+    # Para SQLite (desenvolvimento), sem SSL
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=DATABASE_URL,
+            conn_max_age=600
+        )
+    }
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -97,3 +117,21 @@ TEMPLATES = [
         },
     },
 ]
+
+# Configurações específicas para Render
+if 'RENDER' in os.environ:
+    # Configurações de segurança para produção
+    DEBUG = False
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    
+    # Banco de dados do Render
+    DATABASES = {
+        'default': dj_database_url.config(
+            conn_max_age=600,
+            ssl_require=True
+        )
+    }
