@@ -1,25 +1,26 @@
-version: "1"
 services:
   - type: web
     name: pricetrackerfuel
     env: python
-    region: ohio
-    plan: free
-    branch: main
     buildCommand: |
-      pip install --upgrade pip
       pip install -r requirements.txt
-      python manage.py makemigrations --noinput
-      python manage.py migrate --noinput
       python manage.py collectstatic --noinput
+      python manage.py migrate
     startCommand: gunicorn myproject.wsgi:application
     envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pricetrackerfuel-db  # Nome do BD que você criará
+          property: connectionString
       - key: SECRET_KEY
         generateValue: true
       - key: DEBUG
         value: "False"
-      - key: DJANGO_SETTINGS_MODULE
-        value: "myproject.settings"
-      - key: PYTHON_VERSION
-        value: "3.11.0"
-    autoDeploy: true
+      - key: RENDER
+        value: "true"
+
+databases:
+  - name: pricetrackerfuel-db
+    databaseName: pricetrackerfuel
+    user: pricetracker_user
+    plan: free  # Para MVP

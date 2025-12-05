@@ -120,3 +120,11 @@ git rm -r --cached myproject/__pycache__/
 
 # Remove o .env (não deve ser commitado)
 git rm --cached myproject/.env
+
+
+
+# Verifique a sintaxe
+python manage.py check
+
+# Teste o servidor
+python manage.py runserver
