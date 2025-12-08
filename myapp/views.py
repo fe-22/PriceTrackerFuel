@@ -1,10 +1,17 @@
-# myapp/views.py - VERSÃO SIMPLIFICADA PARA TESTE
+# myapp/views.py - VERSÃO CORRIGIDA
+import json
 from django.http import HttpResponse, JsonResponse
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404, redirect
+from django.db.models import Q
+from django.contrib import messages
+import pandas as pd
+import io
+import random
+from datetime import datetime, timedelta
+from django.utils import timezone
 
-# View principal BÁSICA
+# View principal
 def index(request):
-    # Dados de exemplo (evita erros se o banco estiver vazio)
     context = {
         'total_postos': 0,
         'total_precos': 0,
@@ -16,30 +23,25 @@ def index(request):
         'media_gasolina_aditivada': "6.70",
         'media_diesel_s10': "6.00",
         'media_gnv': "4.50",
-        'postos_destaque': [],  # Lista vazia
-        'postos_baratos': [],   # Lista vazia
+        'postos_destaque': [],
+        'postos_baratos': [],
     }
     
-    # Tenta pegar dados reais, mas não falha se não conseguir
     try:
         from .models import Estabelecimento, PrecoCombustivel
         context['total_postos'] = Estabelecimento.objects.count()
         context['total_precos'] = PrecoCombustivel.objects.count()
         
-        # Para cidades únicas
         if context['total_postos'] > 0:
-            from django.db.models import Count
             context['cidades_unicas'] = Estabelecimento.objects.values('cidade').distinct().count()
-            
     except Exception as e:
-        # Se der erro (tabelas não existem), usa os valores padrão
         print(f"⚠️ Erro ao carregar dados: {e}")
     
     return render(request, 'myapp/index.html', context)
 
+
 def pesquisar(request):
     """Página de pesquisa avançada de postos"""
-    from django.db.models import Q
     from .models import Estabelecimento
     
     query = request.GET.get('q', '').strip()
@@ -50,7 +52,6 @@ def pesquisar(request):
     if query:
         try:
             if tipo_pesquisa == 'cnpj':
-                # Remove caracteres não numéricos do CNPJ
                 cnpj_limpo = ''.join(filter(str.isdigit, query))
                 if cnpj_limpo:
                     resultados = Estabelecimento.objects.filter(
@@ -73,7 +74,7 @@ def pesquisar(request):
                     bandeira__icontains=query
                 ).prefetch_related('precos')
             
-            else:  # Pesquisa por nome (padrão)
+            else:  # Pesquisa por nome
                 resultados = Estabelecimento.objects.filter(
                     Q(nome_fantasia__icontains=query) |
                     Q(razao_social__icontains=query) |
@@ -83,7 +84,6 @@ def pesquisar(request):
             
             total_encontrado = resultados.count()
             
-            # Adiciona preços recentes a cada resultado
             for estabelecimento in resultados:
                 estabelecimento.precos_recentes = {}
                 precos_recentes = estabelecimento.precos.all().order_by('-data_coleta')[:3]
@@ -97,7 +97,6 @@ def pesquisar(request):
         except Exception as e:
             print(f"⚠️ Erro na pesquisa: {e}")
     
-    # Lista de UFs para o select
     UFS_BRASIL = [
         'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA',
         'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN',
@@ -122,42 +121,52 @@ def pesquisar(request):
 
 
 def lista_estabelecimentos(request):
-     """Lista todos os estabelecimentos"""
-     try:
+    """Lista todos os estabelecimentos"""
+    try:
         from .models import Estabelecimento
         estabelecimentos = Estabelecimento.objects.all().order_by('cidade', 'nome_fantasia')
-     except Exception as e:
-        # Se der erro (tabela não existe), usa lista vazia
+    except Exception as e:
         print(f"⚠️ Erro ao carregar estabelecimentos: {e}")
         estabelecimentos = []
     
-     context = {
+    context = {
         'estabelecimentos': estabelecimentos,
     }
     
-     return render(request, 'myapp/lista.html', context)
+    return render(request, 'myapp/lista.html', context)
+
 
 def buscar_por_endereco(request):
-    """
-    Busca avançada por endereço com múltiplos filtros
-    """
-    from .models import PrecoCombustivel
+    """Busca avançada por endereço"""
+    from .models import Estabelecimento
     
-    # Pega parâmetros da URL
     endereco = request.GET.get('endereco', '').strip()
     cidade = request.GET.get('cidade', '').strip()
     bairro = request.GET.get('bairro', '').strip()
     uf = request.GET.get('uf', '').strip()
     combustivel = request.GET.get('combustivel', '').strip()
     
-    # Lista de UFs do Brasil
+    resultados = Estabelecimento.objects.all()
+    
+    if endereco:
+        resultados = resultados.filter(endereco__icontains=endereco)
+    if cidade:
+        resultados = resultados.filter(cidade__icontains=cidade)
+    if bairro:
+        resultados = resultados.filter(bairro__icontains=bairro)
+    if uf:
+        resultados = resultados.filter(uf=uf)
+    if combustivel:
+        resultados = resultados.filter(precos__tipo_combustivel=combustivel)
+    
+    resultados = resultados.distinct().order_by('cidade', 'nome_fantasia')
+    
     UFS_BRASIL = [
         'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA',
         'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN',
         'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
     ]
     
-    # Tipos de combustível
     TIPO_COMBUSTIVEL = [
         ('GASOLINA_COMUM', 'Gasolina Comum'),
         ('GASOLINA_ADITIVADA', 'Gasolina Aditivada'),
@@ -175,105 +184,84 @@ def buscar_por_endereco(request):
         'combustivel': combustivel,
         'UFS_BRASIL': UFS_BRASIL,
         'TIPO_COMBUSTIVEL': TIPO_COMBUSTIVEL,
-        'resultados': [],  # Lista vazia por enquanto
-        'total': 0,
+        'resultados': resultados,
+        'total': resultados.count(),
     }
     
     return render(request, 'myapp/buscar_endereco.html', context)
 
+
 def mapa_postos(request):
-    """Página com mapa interativo de postos"""
-    import json
-    
-    # Dados padrão
-    context = {
-        'total_postos': 0,
-        'postos': '[]',  # JSON vazio
-    }
-    
+    """View para exibir mapa de postos"""
     try:
-        from .models import Estabelecimento
+        from .models import Estabelecimento, PrecoCombustivel
         
-        # Busca postos com coordenadas
-        postos_com_coordenadas = Estabelecimento.objects.filter(
-            latitude__isnull=False,
-            longitude__isnull=False
-        )[:200]  # Limita para performance
+        estabelecimentos = Estabelecimento.objects.all()
         
-        # Prepara dados para o template
         postos_data = []
-        for posto in postos_com_coordenadas:
-            # Preços formatados
+        for estabelecimento in estabelecimentos:
             precos_dict = {}
-            for preco_obj in posto.precos.all().order_by('-data_coleta')[:3]:
-                precos_dict[preco_obj.tipo_combustivel] = str(preco_obj.preco)
+            try:
+                precos = PrecoCombustivel.objects.filter(estabelecimento=estabelecimento)
+                for preco in precos:
+                    precos_dict[preco.tipo_combustivel] = str(preco.preco)
+            except Exception as e:
+                print(f"Erro ao buscar preços para {estabelecimento.id}: {e}")
+            
+            lat = estabelecimento.latitude if estabelecimento.latitude else -15.7797
+            lng = estabelecimento.longitude if estabelecimento.longitude else -47.9297
             
             postos_data.append({
-                'id': posto.id,
-                'nome': posto.nome_fantasia or posto.razao_social,
-                'endereco': posto.endereco,
-                'bairro': posto.bairro,
-                'cidade': posto.cidade,
-                'uf': posto.uf,
-                'bandeira': posto.bandeira or 'Independiente',
-                'latitude': float(posto.latitude) if posto.latitude else 0,
-                'longitude': float(posto.longitude) if posto.longitude else 0,
-                'precos': precos_dict,
+                'id': estabelecimento.id,
+                'nome': estabelecimento.nome_fantasia or estabelecimento.razao_social or 'Posto',
+                'endereco': estabelecimento.endereco or '',
+                'cidade': estabelecimento.cidade or '',
+                'uf': estabelecimento.uf or '',
+                'latitude': float(lat),
+                'longitude': float(lng),
+                'bandeira': estabelecimento.bandeira or '',
+                'precos': precos_dict
             })
         
-        context['total_postos'] = len(postos_data)
-        context['postos'] = json.dumps(postos_data, ensure_ascii=False)
+        bandeiras = Estabelecimento.objects.exclude(
+            bandeira__isnull=True
+        ).exclude(
+            bandeira__exact=''
+        ).values_list('bandeira', flat=True).distinct().order_by('bandeira')
+        
+        context = {
+            'postos': estabelecimentos,
+            'postos_json': json.dumps(postos_data, ensure_ascii=False),
+            'total_postos': estabelecimentos.count(),
+            'bandeiras': bandeiras,
+        }
         
     except Exception as e:
-        print(f"⚠️ Erro no mapa: {e}")
-        # Se der erro, usa dados de exemplo
-        postos_exemplo = [
-            {
-                'id': 1,
-                'nome': 'Posto Shell Exemplo',
-                'endereco': 'Av. Paulista, 1000',
-                'cidade': 'São Paulo',
-                'uf': 'SP',
-                'latitude': -23.5614,
-                'longitude': -46.6563,
-                'precos': {'GASOLINA_COMUM': '6.50', 'ETANOL': '4.20'}
-            },
-            {
-                'id': 2,
-                'nome': 'Posto Ipiranga Exemplo',
-                'endereco': 'Av. Brasil, 2000',
-                'cidade': 'Rio de Janeiro',
-                'uf': 'RJ',
-                'latitude': -22.9068,
-                'longitude': -43.1729,
-                'precos': {'GASOLINA_ADITIVADA': '6.80', 'DIESEL': '5.90'}
-            }
-        ]
-        context['total_postos'] = len(postos_exemplo)
-        context['postos'] = json.dumps(postos_exemplo, ensure_ascii=False)
+        print(f"⚠️ Erro na view mapa_postos: {e}")
+        context = {
+            'postos': [],
+            'postos_json': '[]',
+            'total_postos': 0,
+            'bandeiras': [],
+        }
     
     return render(request, 'myapp/mapa.html', context)
+
 
 def detalhe_posto(request, posto_id):
     """Página de detalhes de um posto específico"""
     try:
         from .models import Estabelecimento, PrecoCombustivel
-        from django.shortcuts import get_object_or_404
         
-        # Busca o posto ou retorna 404
         posto = get_object_or_404(Estabelecimento, id=posto_id)
-        
-        # Busca preços do posto
         precos = PrecoCombustivel.objects.filter(estabelecimento=posto).order_by('-data_coleta')
         
-        # Agrupa preços por tipo
         precos_por_tipo = {}
         for preco in precos:
             if preco.tipo_combustivel not in precos_por_tipo:
                 precos_por_tipo[preco.tipo_combustivel] = []
             precos_por_tipo[preco.tipo_combustivel].append(preco)
         
-        # Tipos de combustível para o template
         TIPO_COMBUSTIVEL_DISPLAY = {
             'GASOLINA_COMUM': 'Gasolina Comum',
             'GASOLINA_ADITIVADA': 'Gasolina Aditivada',
@@ -294,7 +282,6 @@ def detalhe_posto(request, posto_id):
         
     except Exception as e:
         print(f"⚠️ Erro ao carregar detalhes do posto {posto_id}: {e}")
-        # Fallback para página simples
         return HttpResponse(f"""
         <html>
         <head><title>Posto {posto_id}</title></head>
@@ -306,14 +293,14 @@ def detalhe_posto(request, posto_id):
         </html>
         """)
 
+
 def autocomplete_endereco(request):
     """Endpoint para autocomplete na busca de endereços"""
-    from django.http import JsonResponse
     from .models import Estabelecimento
     
     term = request.GET.get('term', '').strip().lower()
     
-    if len(term) >= 2:  # Só busca se tiver pelo menos 2 caracteres
+    if len(term) >= 2:
         suggestions = []
         
         try:
@@ -368,7 +355,6 @@ def autocomplete_endereco(request):
             
         except Exception as e:
             print(f"⚠️ Erro no autocomplete: {e}")
-            # Retorna array vazio se houver erro
         
         return JsonResponse(suggestions, safe=False)
     
@@ -377,7 +363,6 @@ def autocomplete_endereco(request):
 
 def importar_excel(request):
     """Página para importação de dados via Excel"""
-    from django.contrib import messages
     
     context = {
         'arquivos_suportados': ['.xlsx', '.xls', '.csv'],
@@ -389,27 +374,20 @@ def importar_excel(request):
             arquivo = request.FILES['arquivo']
             nome_arquivo = arquivo.name
             
-            # Verifica extensão
             if not nome_arquivo.lower().endswith(('.xlsx', '.xls', '.csv')):
                 messages.error(request, '❌ Formato não suportado. Use .xlsx, .xls ou .csv.')
                 return render(request, 'myapp/importar.html', context)
             
-            # Verifica tamanho (10MB máximo)
             if arquivo.size > 10 * 1024 * 1024:
                 messages.error(request, '❌ Arquivo muito grande. Máximo 10MB.')
                 return render(request, 'myapp/importar.html', context)
-            
-            # Processamento do arquivo (simulação)
-            import pandas as pd
-            import io
             
             if nome_arquivo.lower().endswith('.csv'):
                 df = pd.read_csv(io.StringIO(arquivo.read().decode('utf-8')))
             else:
                 df = pd.read_excel(arquivo)
             
-            # Simula importação
-            linhas_processadas = min(len(df), 100)  # Simula processamento de até 100 linhas
+            linhas_processadas = min(len(df), 100)
             context['dados_importados'] = {
                 'linhas': len(df),
                 'colunas': list(df.columns),
@@ -424,16 +402,12 @@ def importar_excel(request):
     
     return render(request, 'myapp/importar.html', context)
 
+
 def adicionar_precos_exemplo(request):
     """Adiciona preços de exemplo ao banco de dados"""
-    from django.contrib import messages
-    from django.shortcuts import redirect
+    from .models import Estabelecimento, PrecoCombustivel
     
     try:
-        from .models import Estabelecimento, PrecoCombustivel
-        import random
-        
-        # Dados de exemplo para preços
         precos_base = {
             'Shell': {
                 'GASOLINA_COMUM': 5.89, 
@@ -468,7 +442,6 @@ def adicionar_precos_exemplo(request):
             }
         }
         
-        # Pega estabelecimentos sem preços
         estabelecimentos_sem_preco = Estabelecimento.objects.filter(precos__isnull=True)[:50]
         
         if not estabelecimentos_sem_preco:
@@ -478,14 +451,12 @@ def adicionar_precos_exemplo(request):
         total_precos_adicionados = 0
         
         for estabelecimento in estabelecimentos_sem_preco:
-            # Determina qual tabela de preços usar baseado na bandeira
             bandeira = estabelecimento.bandeira or 'Ale'
             if bandeira not in precos_base:
-                bandeira = 'Ale'  # Fallback
+                bandeira = 'Ale'
             
             precos_bandeira = precos_base[bandeira]
             
-            # Escolhe aleatoriamente 2-4 tipos de combustível para este posto
             tipos_disponiveis = list(precos_bandeira.keys())
             tipos_escolhidos = random.sample(
                 tipos_disponiveis, 
@@ -493,17 +464,16 @@ def adicionar_precos_exemplo(request):
             )
             
             for tipo_combustivel in tipos_escolhidos:
-                # Adiciona variação aleatória de ±3%
                 variacao = random.uniform(0.97, 1.03)
                 preco_base = precos_bandeira[tipo_combustivel]
                 preco_final = round(preco_base * variacao, 3)
                 
-                # Cria o preço
                 PrecoCombustivel.objects.create(
                     estabelecimento=estabelecimento,
                     tipo_combustivel=tipo_combustivel,
                     preco=preco_final,
-                    fonte='Sistema (dados exemplo)'
+                    fonte='Sistema (dados exemplo)',
+                    data_coleta=timezone.now()  # CORREÇÃO: Use timezone.now()
                 )
                 total_precos_adicionados += 1
         
@@ -519,16 +489,10 @@ def adicionar_precos_exemplo(request):
 
 
 def atualizar_precos_automatico(request):
-    """Atualiza preços automaticamente com base em fontes externas"""
-    from django.contrib import messages
-    from django.shortcuts import redirect
+    """Atualiza preços automaticamente"""
+    from .models import Estabelecimento, PrecoCombustivel
     
     try:
-        from .models import Estabelecimento, PrecoCombustivel
-        import random
-        from datetime import datetime, timedelta
-        
-        # Simula preços de referência (em um sistema real, viria de API externa)
         precos_referencia = {
             'GASOLINA_COMUM': 5.80,
             'GASOLINA_ADITIVADA': 6.00,
@@ -538,22 +502,20 @@ def atualizar_precos_automatico(request):
             'GNV': 4.30
         }
         
-        # Variações por bandeira
         variacoes_bandeira = {
-            'Shell': 1.05,      # +5%
-            'Ipiranga': 1.03,   # +3%
-            'BR': 1.02,         # +2%
-            'Petrobras': 1.04,  # +4%
-            'Ale': 0.98,        # -2%
-            'Raizen': 1.03,     # +3%
-            'Default': 1.00     # Sem variação
+            'Shell': 1.05,
+            'Ipiranga': 1.03,
+            'BR': 1.02,
+            'Petrobras': 1.04,
+            'Ale': 0.98,
+            'Raizen': 1.03,
+            'Default': 1.00
         }
         
-        # Busca postos que precisam de atualização (preços com mais de 7 dias)
-        uma_semana_atras = datetime.now() - timedelta(days=7)
+        uma_semana_atras = timezone.now() - timedelta(days=7)  # CORREÇÃO: Use timezone.now()
         postos_para_atualizar = Estabelecimento.objects.filter(
             precos__data_coleta__lt=uma_semana_atras
-        ).distinct()[:100]  # Limita a 100 postos por execução
+        ).distinct()[:100]
         
         if not postos_para_atualizar:
             messages.info(request, '✅ Todos os preços estão atualizados (menos de 7 dias)!')
@@ -565,28 +527,25 @@ def atualizar_precos_automatico(request):
         for posto in postos_para_atualizar:
             postos_processados += 1
             
-            # Determina fator da bandeira
             bandeira = posto.bandeira or 'Default'
             fator_bandeira = variacoes_bandeira.get(bandeira, variacoes_bandeira['Default'])
             
-            # Para cada tipo de combustível que o posto tem
             tipos_combustivel_posto = set(
                 posto.precos.values_list('tipo_combustivel', flat=True).distinct()
             )
             
             for tipo_combustivel in tipos_combustivel_posto:
                 if tipo_combustivel in precos_referencia:
-                    # Preço base + variação da bandeira + variação aleatória pequena
                     preco_base = precos_referencia[tipo_combustivel]
                     variacao_aleatoria = random.uniform(0.98, 1.02)
                     novo_preco = round(preco_base * fator_bandeira * variacao_aleatoria, 3)
                     
-                    # Cria novo registro de preço
                     PrecoCombustivel.objects.create(
                         estabelecimento=posto,
                         tipo_combustivel=tipo_combustivel,
                         preco=novo_preco,
-                        fonte='Atualização Automática'
+                        fonte='Atualização Automática',
+                        data_coleta=timezone.now()  # CORREÇÃO: Use timezone.now()
                     )
                     total_atualizados += 1
         
@@ -599,3 +558,159 @@ def atualizar_precos_automatico(request):
         messages.error(request, f'❌ Erro na atualização automática: {str(e)}')
     
     return redirect('index')
+
+
+# NOVAS VIEWS PARA SCRAPING (simplificadas)
+
+def scraping_precos(request):
+    """Interface para executar scraping de preços"""
+    from .models import PrecoCombustivel
+    
+    resultado = None
+    if request.method == 'POST':
+        # Aqui você implementaria o scraping real
+        # Por enquanto, apenas simula
+        resultado = {
+            'sucesso': True,
+            'atualizados': 0,
+            'novos_postos': 0,
+            'data_hora': timezone.now(),
+            'mensagem': 'Scraping simulado (implemente a lógica real)'
+        }
+        messages.info(request, '⚠️ Funcionalidade de scraping ainda não implementada completamente.')
+    
+    context = {
+        'resultado': resultado,
+        'ultima_atualizacao': PrecoCombustivel.objects.order_by('-data_coleta').first().data_coleta if PrecoCombustivel.objects.exists() else None,
+    }
+    
+    return render(request, 'myapp/scraping.html', context)
+
+
+def api_scraping_precos(request):
+    """API para executar scraping"""
+    return JsonResponse({
+        'sucesso': False,
+        'erro': 'Funcionalidade ainda não implementada',
+        'data_hora': timezone.now().isoformat()
+    })
+
+
+def dashboard_scraping(request):
+    """Dashboard para monitoramento do scraping"""
+    from django.db.models import Count
+    
+    try:
+        from .models import Estabelecimento, PrecoCombustivel
+        
+        total_postos = Estabelecimento.objects.count()
+        total_precos = PrecoCombustivel.objects.count()
+        postos_sem_precos = Estabelecimento.objects.filter(precos__isnull=True).count()
+        ultimos_precos = PrecoCombustivel.objects.order_by('-data_coleta')[:10]
+        
+        context = {
+            'total_postos': total_postos,
+            'total_precos': total_precos,
+            'postos_sem_precos': postos_sem_precos,
+            'ultimos_precos': ultimos_precos,
+            'atualizacoes_por_fonte': PrecoCombustivel.objects.values('fonte').annotate(
+                total=Count('id')
+            ).order_by('-total'),
+        }
+        
+    except Exception as e:
+        print(f"Erro no dashboard: {e}")
+        context = {
+            'total_postos': 0,
+            'total_precos': 0,
+            'postos_sem_precos': 0,
+            'ultimos_precos': [],
+            'atualizacoes_por_fonte': [],
+        }
+    
+    return render(request, 'myapp/dashboard_scraping.html', context)
+
+
+# API VIEWS (simplificadas)
+
+def api_lista_postos(request):
+    """API para listar postos (JSON)"""
+    try:
+        from .models import Estabelecimento
+        postos = Estabelecimento.objects.all()[:50]
+        
+        data = []
+        for posto in postos:
+            data.append({
+                'id': posto.id,
+                'nome': posto.nome_fantasia,
+                'cidade': posto.cidade,
+                'uf': posto.uf,
+                'bandeira': posto.bandeira,
+                'endereco': posto.endereco,
+                'latitude': posto.latitude,
+                'longitude': posto.longitude,
+                'url_detalhes': f'/posto/{posto.id}/'
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'count': len(data),
+            'postos': data
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+def api_detalhe_posto(request, posto_id):
+    """API para detalhes de um posto específico (JSON)"""
+    try:
+        from .models import Estabelecimento, PrecoCombustivel
+        
+        posto = get_object_or_404(Estabelecimento, id=posto_id)
+        
+        precos = PrecoCombustivel.objects.filter(
+            estabelecimento=posto
+        ).order_by('-data_coleta')
+        
+        precos_data = []
+        for preco in precos[:10]:
+            precos_data.append({
+                'tipo': preco.tipo_combustivel,
+                'preco': float(preco.preco),
+                'data': preco.data_coleta.strftime('%d/%m/%Y %H:%M') if preco.data_coleta else '',
+                'fonte': preco.fonte
+            })
+        
+        data = {
+            'id': posto.id,
+            'nome': posto.nome_fantasia,
+            'razao_social': posto.razao_social,
+            'cnpj': posto.cnpj,
+            'endereco': posto.endereco,
+            'bairro': posto.bairro,
+            'cidade': posto.cidade,
+            'uf': posto.uf,
+            'cep': posto.cep,
+            'bandeira': posto.bandeira,
+            'latitude': posto.latitude,
+            'longitude': posto.longitude,
+            'telefone': posto.telefone,
+            'precos': precos_data,
+            'total_precos': precos.count()
+        }
+        
+        return JsonResponse({
+            'success': True,
+            'posto': data
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)

@@ -1,0 +1,140 @@
+{% extends 'myapp/base.html' %}
+
+{% block title %}Scraping de Preços - PriceTracker Fuel{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="fas fa-robot"></i> Scraping Automático de Preços</h4>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">
+                        Esta ferramenta busca automaticamente os preços mais recentes de combustíveis
+                        em fontes da web e atualiza o banco de dados.
+                    </p>
+                    
+                    {% if resultado %}
+                    <div class="alert alert-{{ resultado.sucesso|yesno:'success,danger' }} mt-3">
+                        <h5><i class="fas fa-{{ resultado.sucesso|yesno:'check,times' }}-circle"></i> 
+                            Scraping {{ resultado.sucesso|yesno:'Concluído,Com Erro' }}
+                        </h5>
+                        {% if resultado.sucesso %}
+                            <p class="mb-0">
+                                <strong>{{ resultado.atualizados }}</strong> preços atualizados<br>
+                                <strong>{{ resultado.novos_postos }}</strong> novos postos encontrados
+                            </p>
+                        {% else %}
+                            <p class="mb-0">Erro: {{ resultado.erro }}</p>
+                        {% endif %}
+                        <small class="text-muted">Em: {{ resultado.data_hora|date:"d/m/Y H:i" }}</small>
+                    </div>
+                    {% endif %}
+                    
+                    <form method="post" class="mt-4">
+                        {% csrf_token %}
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Área de Busca</label>
+                                <select class="form-select" name="area_busca">
+                                    <option value="brasil">Todo o Brasil</option>
+                                    <option value="sudeste">Região Sudeste</option>
+                                    <option value="capital">Apenas Capitais</option>
+                                    <option value="recentes">Postos sem atualização recente</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Limite</label>
+                                <select class="form-select" name="limite">
+                                    <option value="50">50 postos</option>
+                                    <option value="100" selected>100 postos</option>
+                                    <option value="200">200 postos</option>
+                                    <option value="500">500 postos</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>Atenção:</strong> O scraping pode levar alguns minutos e depende
+                            da disponibilidade das fontes externas.
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary btn-lg w-100">
+                            <i class="fas fa-play-circle"></i> Executar Scraping Agora
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card shadow">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-history"></i> Histórico</h5>
+                </div>
+                <div class="card-body">
+                    {% if historico %}
+                        <div class="list-group">
+                            {% for item in historico %}
+                            <div class="list-group-item">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1">Scraping #{{ forloop.counter }}</h6>
+                                    <small>{{ item.data|date:"d/m H:i" }}</small>
+                                </div>
+                                <small class="text-muted">{{ item.atualizados }} preços atualizados</small>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-center text-muted">
+                            <i class="fas fa-history fa-2x mb-3"></i><br>
+                            Nenhum scraping executado ainda
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card shadow">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-info-circle"></i> Informações</h5>
+                </div>
+                <div class="card-body">
+                    <h6><i class="fas fa-sync-alt"></i> Última Atualização</h6>
+                    <p class="mb-3">
+                        {% if ultima_atualizacao %}
+                            <strong>{{ ultima_atualizacao|date:"d/m/Y H:i" }}</strong>
+                        {% else %}
+                            <strong>Nunca atualizado</strong>
+                        {% endif %}
+                    </p>
+                    
+                    <h6><i class="fas fa-database"></i> Fontes Utilizadas</h6>
+                    <ul class="small">
+                        <li>Postos.Posto.com.br</li>
+                        <li>PrecosCombustiveis.com.br</li>
+                        <li>Google Places API</li>
+                        <li>Agências reguladoras estaduais</li>
+                    </ul>
+                    
+                    <h6><i class="fas fa-clock"></i> Agendamento Automático</h6>
+                    <p class="small">
+                        O scraping pode ser agendado para rodar automaticamente
+                        a cada 6 horas usando cron jobs.
+                    </p>
+                    
+                    <a href="{% url 'dashboard_scraping' %}" class="btn btn-outline-success btn-sm">
+                        <i class="fas fa-chart-line"></i> Ver Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

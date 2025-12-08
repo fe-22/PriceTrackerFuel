@@ -1,0 +1,18 @@
+{% extends 'myapp/base.html' %}
+
+{% block title %}Dashboard de Scraping{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1><i class="fas fa-chart-line"></i> Dashboard de Scraping</h1>
+    
+    <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle"></i>
+        Dashboard em desenvolvimento.
+    </div>
+    
+    <a href="{% url 'scraping_precos' %}" class="btn btn-primary">
+        <i class="fas fa-robot"></i> Ir para Scraping
+    </a>
+</div>
+{% endblock %}
