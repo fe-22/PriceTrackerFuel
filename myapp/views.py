@@ -191,25 +191,225 @@ def buscar_por_endereco(request):
     return render(request, 'myapp/buscar_endereco.html', context)
 
 
+# myapp/views.py - VERSÃO OTIMIZADA DO MAPA
+
 def mapa_postos(request):
     """View para exibir mapa de postos"""
     try:
+        from .models import Estabelecimento
+        import random
+        
+        print(f"🔍 Buscando postos com coordenadas...")
+        
+        # Filtra postos COM coordenadas válidas
+        estabelecimentos = Estabelecimento.objects.filter(
+            latitude__isnull=False,
+            longitude__isnull=False
+        ).exclude(
+            latitude=0,
+            longitude=0
+        )
+        
+        print(f"📊 Encontrados: {estabelecimentos.count()} postos com coordenadas")
+        
+        # Se não encontrar nenhum, gera alguns aleatórios
+        if estabelecimentos.count() == 0:
+            print("⚠️ Nenhum posto com coordenadas. Gerando fictícias...")
+            
+            # Pega alguns postos aleatórios
+            estabelecimentos = Estabelecimento.objects.all()[:20]
+            
+            postos_data = []
+            for i, estabelecimento in enumerate(estabelecimentos):
+                # Gera coordenadas fictícias distribuídas pelo Brasil
+                lat_base = -15.0 + (i % 10) * 3.0  # De -15 a +15
+                lng_base = -50.0 + (i % 15) * 3.0  # De -50 a -5
+                lat = lat_base + random.uniform(-1.0, 1.0)
+                lng = lng_base + random.uniform(-1.0, 1.0)
+                
+                postos_data.append({
+                    'id': estabelecimento.id,
+                    'nome': estabelecimento.nome_fantasia or estabelecimento.razao_social or f'Posto {estabelecimento.id}',
+                    'endereco': estabelecimento.endereco or '',
+                    'cidade': estabelecimento.cidade or '',
+                    'uf': estabelecimento.uf or '',
+                    'latitude': round(lat, 6),
+                    'longitude': round(lng, 6),
+                    'bandeira': estabelecimento.bandeira or '',
+                    'is_demo': True,  # Flag para dados demo
+                })
+            
+            print(f"📊 Gerados: {len(postos_data)} postos demo")
+        else:
+            # Usa coordenadas reais do banco
+            postos_data = []
+            for estabelecimento in estabelecimentos[:200]:  # Limita a 200
+                try:
+                    lat = float(estabelecimento.latitude)
+                    lng = float(estabelecimento.longitude)
+                    
+                    postos_data.append({
+                        'id': estabelecimento.id,
+                        'nome': estabelecimento.nome_fantasia or estabelecimento.razao_social or 'Posto',
+                        'endereco': estabelecimento.endereco or '',
+                        'cidade': estabelecimento.cidade or '',
+                        'uf': estabelecimento.uf or '',
+                        'latitude': lat,
+                        'longitude': lng,
+                        'bandeira': estabelecimento.bandeira or '',
+                        'is_demo': False,
+                    })
+                except (ValueError, TypeError):
+                    continue
+        
+        # Se ainda não tiver dados, cria exemplos
+        if len(postos_data) == 0:
+            print("⚠️ Criando dados de exemplo...")
+            postos_data = [
+                {
+                    'id': 1,
+                    'nome': 'Posto Shell Express (Exemplo)',
+                    'latitude': -23.5505,
+                    'longitude': -46.6333,
+                    'endereco': 'Av. Paulista, 1000',
+                    'cidade': 'São Paulo',
+                    'uf': 'SP',
+                    'bandeira': 'Shell',
+                    'is_demo': True,
+                },
+                {
+                    'id': 2,
+                    'nome': 'Posto Ipiranga Centro (Exemplo)',
+                    'latitude': -23.5605,
+                    'longitude': -46.6433,
+                    'endereco': 'Rua Augusta, 500',
+                    'cidade': 'São Paulo',
+                    'uf': 'SP',
+                    'bandeira': 'Ipiranga',
+                    'is_demo': True,
+                },
+                {
+                    'id': 3,
+                    'nome': 'Posto BR (Exemplo)',
+                    'latitude': -23.5705,
+                    'longitude': -46.6533,
+                    'endereco': 'Av. Rebouças, 2000',
+                    'cidade': 'São Paulo',
+                    'uf': 'SP',
+                    'bandeira': 'BR',
+                    'is_demo': True,
+                },
+            ]
+        
+        # Bandas disponíveis
+        bandeiras = list(Estabelecimento.objects.exclude(
+            bandeira__isnull=True
+        ).exclude(
+            bandeira__exact=''
+        ).values_list('bandeira', flat=True).distinct().order_by('bandeira')[:20])
+        
+        if not bandeiras:
+            bandeiras = ['Shell', 'Ipiranga', 'BR', 'Petrobras', 'Ale']
+        
+        import json
+        postos_json = json.dumps(postos_data)
+        
+        context = {
+            'postos_json': postos_json,
+            'total_postos': len(postos_data),
+            'bandeiras': bandeiras,
+            'debug_mode': settings.DEBUG,
+            'has_real_data': any(not p.get('is_demo', False) for p in postos_data),
+        }
+        
+        print(f"✅ Enviando {len(postos_data)} postos para o mapa")
+        
+    except Exception as e:
+        print(f"❌ Erro na view mapa_postos: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        # Fallback garantido
+        postos_data = [
+            {
+                'id': 999,
+                'nome': 'Posto de Teste',
+                'latitude': -15.7797,
+                'longitude': -47.9297,
+                'endereco': 'Coordenadas de exemplo',
+                'cidade': 'Brasília',
+                'uf': 'DF',
+                'bandeira': 'Teste',
+                'is_demo': True,
+            }
+        ]
+        
+        import json
+        context = {
+            'postos_json': json.dumps(postos_data),
+            'total_postos': 1,
+            'bandeiras': ['Teste'],
+            'debug_mode': True,
+            'has_real_data': False,
+        }
+    
+    return render(request, 'myapp/mapa.html', context)
+
+
+# NOVA API PARA CARREGAMENTO DINÂMICO
+def api_postos_mapa(request):
+    """API para carregar postos no mapa com filtros e paginação"""
+    try:
         from .models import Estabelecimento, PrecoCombustivel
+        from django.db.models import Prefetch
         
-        estabelecimentos = Estabelecimento.objects.all()
+        # Parâmetros de filtro
+        bounds = request.GET.get('bounds')  # ne_lat,ne_lng,sw_lat,sw_lng
+        zoom = request.GET.get('zoom', 10)
+        bandeira = request.GET.get('bandeira')
+        combustivel = request.GET.get('combustivel')
+        limite = int(request.GET.get('limit', 100))  # Limite por requisição
         
+        # Query base
+        estabelecimentos = Estabelecimento.objects.filter(
+            latitude__isnull=False,
+            longitude__isnull=False
+        )
+        
+        # Filtro por bandeira
+        if bandeira and bandeira != 'todas':
+            estabelecimentos = estabelecimentos.filter(bandeira__iexact=bandeira)
+        
+        # Filtro por área visível (bounds)
+        if bounds:
+            try:
+                ne_lat, ne_lng, sw_lat, sw_lng = map(float, bounds.split(','))
+                estabelecimentos = estabelecimentos.filter(
+                    latitude__range=(sw_lat, ne_lat),
+                    longitude__range=(sw_lng, ne_lng)
+                )
+            except:
+                pass
+        
+        # Otimização: prefetch dos últimos preços
+        estabelecimentos = estabelecimentos.prefetch_related(
+            Prefetch(
+                'precos',
+                queryset=PrecoCombustivel.objects.order_by('-data_coleta')[:3],
+                to_attr='ultimos_precos'
+            )
+        )[:limite]  # IMPORTANTE: Limite de resultados
+        
+        # Constrói resposta
         postos_data = []
         for estabelecimento in estabelecimentos:
             precos_dict = {}
-            try:
-                precos = PrecoCombustivel.objects.filter(estabelecimento=estabelecimento)
-                for preco in precos:
-                    precos_dict[preco.tipo_combustivel] = str(preco.preco)
-            except Exception as e:
-                print(f"Erro ao buscar preços para {estabelecimento.id}: {e}")
-            
-            lat = estabelecimento.latitude if estabelecimento.latitude else -15.7797
-            lng = estabelecimento.longitude if estabelecimento.longitude else -47.9297
+            for preco in getattr(estabelecimento, 'ultimos_precos', []):
+                precos_dict[preco.tipo_combustivel] = {
+                    'preco': float(preco.preco),
+                    'data': preco.data_coleta.strftime('%d/%m') if preco.data_coleta else '',
+                    'fonte': preco.fonte
+                }
             
             postos_data.append({
                 'id': estabelecimento.id,
@@ -217,35 +417,58 @@ def mapa_postos(request):
                 'endereco': estabelecimento.endereco or '',
                 'cidade': estabelecimento.cidade or '',
                 'uf': estabelecimento.uf or '',
-                'latitude': float(lat),
-                'longitude': float(lng),
+                'latitude': float(estabelecimento.latitude),
+                'longitude': float(estabelecimento.longitude),
                 'bandeira': estabelecimento.bandeira or '',
-                'precos': precos_dict
+                'precos': precos_dict,
+                'has_details': True if estabelecimento.ultimos_precos else False
             })
         
-        bandeiras = Estabelecimento.objects.exclude(
-            bandeira__isnull=True
-        ).exclude(
-            bandeira__exact=''
-        ).values_list('bandeira', flat=True).distinct().order_by('bandeira')
-        
-        context = {
-            'postos': estabelecimentos,
-            'postos_json': json.dumps(postos_data, ensure_ascii=False),
-            'total_postos': estabelecimentos.count(),
-            'bandeiras': bandeiras,
-        }
+        return JsonResponse({
+            'success': True,
+            'count': len(postos_data),
+            'total': estabelecimentos.count(),
+            'postos': postos_data
+        })
         
     except Exception as e:
-        print(f"⚠️ Erro na view mapa_postos: {e}")
-        context = {
-            'postos': [],
-            'postos_json': '[]',
-            'total_postos': 0,
-            'bandeiras': [],
-        }
-    
-    return render(request, 'myapp/mapa.html', context)
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'postos': []
+        }, status=500)
+
+
+def api_precos_posto(request, posto_id):
+    """API para carregar preços de um posto específico"""
+    try:
+        from .models import PrecoCombustivel
+        
+        precos = PrecoCombustivel.objects.filter(
+            estabelecimento_id=posto_id
+        ).order_by('-data_coleta')[:10]
+        
+        precos_data = []
+        for preco in precos:
+            precos_data.append({
+                'tipo': preco.tipo_combustivel,
+                'tipo_display': preco.get_tipo_combustivel_display(),
+                'preco': float(preco.preco),
+                'data': preco.data_coleta.strftime('%d/%m/%Y %H:%M') if preco.data_coleta else '',
+                'fonte': preco.fonte
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'posto_id': posto_id,
+            'precos': precos_data
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
 
 
 def detalhe_posto(request, posto_id):
@@ -714,3 +937,30 @@ def api_detalhe_posto(request, posto_id):
             'success': False,
             'error': str(e)
         }, status=500)
+        
+def debug_postos(request):
+    """View para debug dos dados dos postos"""
+    from .models import Estabelecimento
+    
+    postos = Estabelecimento.objects.all()[:10]
+    
+    debug_info = []
+    for posto in postos:
+        debug_info.append({
+            'id': posto.id,
+            'nome': posto.nome_fantasia,
+            'latitude': posto.latitude,
+            'longitude': posto.longitude,
+            'tem_coordenadas': bool(posto.latitude and posto.longitude),
+            'cidade': posto.cidade,
+            'bandeira': posto.bandeira,
+        })
+    
+    return JsonResponse({
+        'total_postos': Estabelecimento.objects.count(),
+        'postos_com_coordenadas': Estabelecimento.objects.filter(
+            latitude__isnull=False, 
+            longitude__isnull=False
+        ).count(),
+        'amostra': debug_info
+    })
