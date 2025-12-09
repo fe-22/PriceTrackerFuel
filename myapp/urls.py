@@ -23,10 +23,10 @@ urlpatterns = [
     path('scraping/', views.scraping_precos, name='scraping_precos'),
     path('scraping/api/', views.api_scraping_precos, name='api_scraping'),
     path('scraping/dashboard/', views.dashboard_scraping, name='dashboard_scraping'),
-    
+    path('debug/postos/', views.debug_postos, name='debug_postos'),
     # APIs adicionais (opcionais)
-    path('api/postos/', views.api_lista_postos, name='api_postos_lista'),
-    path('api/postos/<int:posto_id>/', views.api_detalhe_posto, name='api_posto_detalhe'),
+    path('api/postos/mapa/', views.api_postos_mapa, name='api_postos_mapa'),
+    path('api/postos/<int:posto_id>/precos/', views.api_precos_posto, name='api_precos_posto'),
 ]
 
 """

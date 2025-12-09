@@ -1,151 +1,151 @@
-<!-- templates/myapp/mapa.html -->
+<!-- myapp/templates/myapp/mapa.html -->
 {% extends 'myapp/base.html' %}
 
-{% block title %}Mapa de Postos - PriceTracker Fuel{% endblock %}
-
-{% block extra_css %}
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
-<style>
-    #map {
-        height: 600px;
-        border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        z-index: 1;
-    }
-    .leaflet-container {
-        font-family: inherit;
-    }
-    .map-info {
-        background: white;
-        padding: 15px;
-        border-radius: 8px;
-        margin-bottom: 20px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    .custom-marker {
-        background: transparent;
-        border: none;
-    }
-    .posto-item {
-        cursor: pointer;
-        transition: all 0.3s ease;
-    }
-    .posto-item:hover {
-        background-color: #f8f9fa;
-        transform: translateX(5px);
-    }
-    .filtros-container {
-        position: sticky;
-        top: 20px;
-        z-index: 1000;
-    }
-</style>
-{% endblock %}
+{% load static %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="map-info">
-                <h3><i class="fas fa-map-marked-alt"></i> Mapa de Postos</h3>
-                <p class="text-muted mb-0">
-                    Visualize a localização de {{ total_postos }} postos no mapa. 
-                    Clique nos marcadores para ver detalhes.
-                </p>
-            </div>
-        </div>
-    </div>
-    
+<div class="container-fluid mt-3">
     <div class="row">
-        <div class="col-md-9">
-            <div id="map"></div>
-        </div>
-        
-        <div class="col-md-3">
-            <div class="filtros-container">
-                <div class="card shadow mb-3">
-                    <div class="card-header bg-primary text-white">
-                        <h5 class="mb-0"><i class="fas fa-filter"></i> Filtros</h5>
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div>
+                        <h4 class="mb-0">Mapa de Postos de Combustível</h4>
+                        <small id="contador-postos" class="text-muted">
+                            Carregando postos... (Total: {{ total_postos }})
+                        </small>
                     </div>
-                    <div class="card-body">
-                        <div class="mb-3">
-                            <label class="form-label">Tipo de Combustível</label>
-                            <select class="form-select" id="filterCombustivel">
-                                <option value="all">Todos</option>
-                                <option value="GASOLINA_COMUM">Gasolina Comum</option>
-                                <option value="ETANOL">Etanol</option>
-                                <option value="DIESEL">Diesel</option>
-                                <option value="GASOLINA_ADITIVADA">Gasolina Aditivada</option>
-                            </select>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label class="form-label">Bandeira</label>
-                            <select class="form-select" id="filterBandeira">
-                                <option value="all">Todas</option>
-                                {% for bandeira in bandeiras %}
-                                <option value="{{ bandeira }}">{{ bandeira }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        
-                        <button class="btn btn-primary w-100" id="applyFilters">
-                            <i class="fas fa-filter"></i> Aplicar Filtros
-                        </button>
-                        <button class="btn btn-outline-secondary w-100 mt-2" id="resetFilters">
-                            <i class="fas fa-times"></i> Limpar Filtros
-                        </button>
-                        
-                        <hr>
-                        
-                        <div class="mt-3">
-                            <h6><i class="fas fa-info-circle"></i> Legenda</h6>
-                            <div class="d-flex align-items-center mb-2">
-                                <i class="fas fa-gas-pump text-danger me-2"></i>
-                                <small>Posto com preços</small>
+                    {% if debug_mode %}
+                    <span class="badge bg-warning text-dark">MODO DEBUG</span>
+                    {% endif %}
+                </div>
+                <div class="card-body p-0" style="height: 70vh;">
+                    <!-- DIV DO MAPA - ESSENCIAL -->
+                    <div id="map" style="height: 100%; width: 100%;"></div>
+                </div>
+                <div class="card-footer">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="input-group">
+                                <span class="input-group-text">Filtros</span>
+                                <select id="filtro-bandeira" class="form-select">
+                                    <option value="todas">Todas as bandeiras</option>
+                                    {% for bandeira in bandeiras %}
+                                    <option value="{{ bandeira }}">{{ bandeira }}</option>
+                                    {% endfor %}
+                                </select>
+                                <button id="btn-filtrar" class="btn btn-primary">
+                                    <i class="fas fa-filter"></i> Filtrar
+                                </button>
                             </div>
-                            <div class="d-flex align-items-center mb-2">
-                                <i class="fas fa-gas-pump text-secondary me-2"></i>
-                                <small>Posto sem preços</small>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <div class="btn-group">
+                                <button id="btn-localizar" class="btn btn-outline-primary">
+                                    <i class="fas fa-location-arrow"></i> Minha Localização
+                                </button>
+                                <button id="btn-resetar" class="btn btn-outline-secondary">
+                                    <i class="fas fa-sync-alt"></i> Resetar
+                                </button>
+                                <button id="btn-debug" class="btn btn-outline-info">
+                                    <i class="fas fa-bug"></i> Debug
+                                </button>
                             </div>
                         </div>
                     </div>
                 </div>
-                
-                <div class="card shadow">
-                    <div class="card-header bg-info text-white">
-                        <h5 class="mb-0"><i class="fas fa-list"></i> Postos</h5>
-                        <small id="postosContador" class="text-white">{{ total_postos }} postos</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para detalhes -->
+<div class="modal fade" id="modalDetalhes" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalDetalhesTitulo">Detalhes do Posto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="modalDetalhesCorpo">
+                <div class="text-center">
+                    <div class="spinner-border text-primary"></div>
+                    <p class="mt-2">Carregando informações do posto...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <a href="#" id="linkDetalhesCompleto" class="btn btn-primary" target="_blank">
+                    <i class="fas fa-external-link-alt"></i> Página Completa
+                </a>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times"></i> Fechar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Debug -->
+<div class="modal fade" id="modalDebug" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Debug do Mapa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Informações do Backend</h6>
+                        <table class="table table-sm">
+                            <tr>
+                                <th>Total postos no banco:</th>
+                                <td>{{ total_postos }}</td>
+                            </tr>
+                            <tr>
+                                <th>Bandeiras disponíveis:</th>
+                                <td>{{ bandeiras|length }}</td>
+                            </tr>
+                            <tr>
+                                <th>Modo Debug:</th>
+                                <td>{{ debug_mode|yesno:"Ativo,Inativo" }}</td>
+                            </tr>
+                        </table>
+                        
+                        <h6>Primeiros 3 postos:</h6>
+                        <pre id="debug-postos" style="max-height: 300px; overflow: auto;"></pre>
                     </div>
-                    <div class="card-body p-0">
-                        <div id="postosLista" style="max-height: 400px; overflow-y: auto;">
-                            {% for posto in postos %}
-                            <div class="posto-item p-3 border-bottom" 
-                                 data-id="{{ posto.id }}" 
-                                 data-lat="{{ posto.latitude|default:'-15.7797' }}"
-                                 data-lng="{{ posto.longitude|default:'-47.9297' }}"
-                                 data-bandeira="{{ posto.bandeira }}">
-                                <div class="d-flex justify-content-between align-items-start">
-                                    <div>
-                                        <strong class="d-block">{{ posto.nome }}</strong>
-                                        <small class="text-muted">
-                                            <i class="fas fa-flag"></i> {{ posto.bandeira|default:"Sem bandeira" }}
-                                        </small><br>
-                                        <small class="text-muted">
-                                            <i class="fas fa-map-marker-alt"></i> {{ posto.cidade.nome|default:"" }}/{{ posto.cidade.uf|default:"" }}
-                                        </small>
-                                    </div>
-                                    <button class="btn btn-sm btn-outline-primary btn-ver-posto" 
-                                            data-id="{{ posto.id }}">
-                                        <i class="fas fa-eye"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            {% empty %}
-                            <p class="text-center text-muted p-3">Nenhum posto encontrado</p>
-                            {% endfor %}
-                        </div>
+                    <div class="col-md-6">
+                        <h6>Informações do Mapa</h6>
+                        <table class="table table-sm">
+                            <tr>
+                                <th>Mapa inicializado:</th>
+                                <td id="debug-mapa-status">Não</td>
+                            </tr>
+                            <tr>
+                                <th>Marcadores carregados:</th>
+                                <td id="debug-marcadores-count">0</td>
+                            </tr>
+                            <tr>
+                                <th>Centro do mapa:</th>
+                                <td id="debug-mapa-centro">-</td>
+                            </tr>
+                            <tr>
+                                <th>Zoom atual:</th>
+                                <td id="debug-mapa-zoom">-</td>
+                            </tr>
+                        </table>
+                        
+                        <h6>Console JavaScript:</h6>
+                        <div id="debug-console" style="
+                            height: 200px; 
+                            background: #1e1e1e; 
+                            color: #fff; 
+                            font-family: monospace;
+                            padding: 10px;
+                            overflow-y: auto;
+                            border-radius: 4px;
+                        "></div>
                     </div>
                 </div>
             </div>
@@ -154,250 +154,824 @@
 </div>
 {% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+<style>
+#map {
+    min-height: 500px;
+    z-index: 1;
+}
+
+.leaflet-container {
+    font-family: inherit;
+    font-size: 14px;
+}
+
+.custom-marker {
+    background: transparent;
+    border: none;
+}
+
+.marker-cluster-small {
+    background-color: rgba(181, 226, 140, 0.6);
+}
+
+.marker-cluster-small div {
+    background-color: rgba(110, 204, 57, 0.6);
+}
+
+.marker-cluster-medium {
+    background-color: rgba(241, 211, 87, 0.6);
+}
+
+.marker-cluster-medium div {
+    background-color: rgba(240, 194, 12, 0.6);
+}
+
+.marker-cluster-large {
+    background-color: rgba(253, 156, 115, 0.6);
+}
+
+.marker-cluster-large div {
+    background-color: rgba(241, 128, 23, 0.6);
+}
+
+.leaflet-popup-content {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.leaflet-popup-content h6 {
+    color: #333;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+</style>
+{% endblock %}
+
 {% block extra_js %}
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Dados dos postos do Django - corrigido
-    const postosData = {{ postos_json|safe }};
-    console.log('Postos carregados:', postosData.length);
+// ============================================================================
+// CONFIGURAÇÃO E VARIÁVEIS GLOBAIS
+// ============================================================================
+console.log('🚀 Inicializando script do mapa...');
+
+let map = null;
+let markersLayer = null;
+let allPostos = [];
+let debugLogs = [];
+
+// Configurações
+const CONFIG = {
+    initialCenter: [-15.7797, -47.9297],  // Brasília
+    initialZoom: 12,
+    maxZoom: 18,
+    minZoom: 3,
+    maxMarkers: 500
+};
+
+// ============================================================================
+// FUNÇÕES DE DEBUG E LOG
+// ============================================================================
+function addDebugLog(message, type = 'info') {
+    const timestamp = new Date().toLocaleTimeString();
+    const logEntry = `[${timestamp}] ${message}`;
+    debugLogs.push(logEntry);
     
-    // Configuração inicial do mapa (centro no Brasil)
-    const map = L.map('map').setView([-15.7797, -47.9297], 4);
+    // Limita o tamanho do log
+    if (debugLogs.length > 50) debugLogs.shift();
     
-    // Adiciona tile layer (mapa base)
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors',
-        maxZoom: 19,
-    }).addTo(map);
+    // Atualiza modal de debug se estiver aberto
+    if ($('#modalDebug').hasClass('show')) {
+        updateDebugConsole();
+    }
     
-    // Arrays para armazenar os marcadores e clusters
-    let markers = [];
-    let markerLayer = L.layerGroup().addTo(map);
+    // Console do navegador
+    const consoleMethod = type === 'error' ? console.error : 
+                         type === 'warn' ? console.warn : console.log;
+    consoleMethod(logEntry);
+}
+
+function updateDebugConsole() {
+    const consoleDiv = $('#debug-console');
+    consoleDiv.empty();
+    debugLogs.forEach(log => {
+        consoleDiv.append(`<div>${log}</div>`);
+    });
+    consoleDiv.scrollTop(consoleDiv[0].scrollHeight);
+}
+
+function showDebugInfo() {
+    if (map) {
+        const center = map.getCenter();
+        $('#debug-mapa-status').text('Sim');
+        $('#debug-marcadores-count').text(markersLayer ? markersLayer.getLayers().length : 0);
+        $('#debug-mapa-centro').text(`${center.lat.toFixed(4)}, ${center.lng.toFixed(4)}`);
+        $('#debug-mapa-zoom').text(map.getZoom());
+    }
     
-    // Função para criar ícone personalizado
-    function createCustomIcon(color) {
-        return L.divIcon({
-            className: 'custom-marker',
-            html: `<div style="
-                background: white;
+    // Mostra primeiros postos
+    try {
+        const postosExemplo = allPostos.slice(0, 3);
+        $('#debug-postos').text(JSON.stringify(postosExemplo, null, 2));
+    } catch (e) {
+        $('#debug-postos').text(`Erro: ${e.message}`);
+    }
+    
+    updateDebugConsole();
+}
+
+// ============================================================================
+// INICIALIZAÇÃO DO MAPA
+// ============================================================================
+function initMap() {
+    addDebugLog('Iniciando mapa...');
+    
+    try {
+        // Cria o mapa
+        map = L.map('map', {
+            center: CONFIG.initialCenter,
+            zoom: CONFIG.initialZoom,
+            preferCanvas: true,  // Melhor performance
+            zoomControl: true,
+            maxZoom: CONFIG.maxZoom,
+            minZoom: CONFIG.minZoom
+        });
+        
+        addDebugLog('Mapa criado com sucesso');
+        
+        // Adiciona layer de tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+            maxZoom: CONFIG.maxZoom
+        }).addTo(map);
+        
+        addDebugLog('Tiles OpenStreetMap carregados');
+        
+        // Cria layer de cluster para marcadores
+        markersLayer = L.markerClusterGroup({
+            showCoverageOnHover: false,
+            zoomToBoundsOnClick: true,
+            chunkedLoading: true,
+            chunkDelay: 100,
+            maxClusterRadius: 40,
+            disableClusteringAtZoom: 16
+        });
+        map.addLayer(markersLayer);
+        
+        addDebugLog('Layer de cluster configurado');
+        
+        // Carrega os postos iniciais
+        loadPostosFromDjango();
+        
+        // Configura event listeners
+        setupEventListeners();
+        
+        addDebugLog('Mapa inicializado com sucesso! ✅');
+        
+    } catch (error) {
+        addDebugLog(`Erro crítico ao inicializar mapa: ${error.message}`, 'error');
+        showErrorOnMap('Erro ao carregar o mapa. Por favor, recarregue a página.');
+    }
+}
+
+// ============================================================================
+// CARREGAMENTO DE DADOS
+// ============================================================================
+function loadPostosFromDjango() {
+    addDebugLog('Carregando postos do Django...');
+    
+    try {
+        // IMPORTANTE: Usamos safe filter no template, mas precisamos garantir que é JSON válido
+        const postosJsonString = '{{ postos_json|safe }}';
+        addDebugLog(`JSON recebido (primeiros 200 chars): ${postosJsonString.substring(0, 200)}...`);
+        
+        if (!postosJsonString || postosJsonString === '[]') {
+            addDebugLog('⚠️ Nenhum dado recebido do backend ou array vazio', 'warn');
+            showWarningOnMap('Nenhum posto encontrado com coordenadas válidas.');
+            return;
+        }
+        
+        // Tenta fazer parse do JSON
+        let postosData;
+        try {
+            postosData = JSON.parse(postosJsonString);
+        } catch (jsonError) {
+            addDebugLog(`Erro ao parsear JSON: ${jsonError.message}`, 'error');
+            
+            // Tenta corrigir problemas comuns no JSON
+            const fixedJson = postosJsonString
+                .replace(/\\'/g, "'")
+                .replace(/\\"/g, '"')
+                .replace(/\\n/g, '')
+                .replace(/\\t/g, '')
+                .replace(/\\r/g, '');
+            
+            try {
+                postosData = JSON.parse(fixedJson);
+                addDebugLog('JSON corrigido com sucesso');
+            } catch (e2) {
+                addDebugLog(`Falha ao corrigir JSON: ${e2.message}`, 'error');
+                showErrorOnMap('Erro nos dados dos postos. Contate o administrador.');
+                return;
+            }
+        }
+        
+        addDebugLog(`✅ ${postosData.length} postos recebidos do backend`);
+        
+        // Valida e filtra dados
+        const postosValidos = validatePostosData(postosData);
+        addDebugLog(`📊 ${postosValidos.length} postos válidos após validação`);
+        
+        if (postosValidos.length === 0) {
+            addDebugLog('⚠️ Nenhum posto válido após validação', 'warn');
+            showWarningOnMap('Nenhum posto com coordenadas válidas encontrado.');
+            return;
+        }
+        
+        // Armazena e exibe
+        allPostos = postosValidos;
+        displayPostosOnMap(postosValidos);
+        updatePostosCounter();
+        
+        // Ajusta view do mapa para mostrar todos os marcadores
+        if (postosValidos.length > 0) {
+            const bounds = getPostosBounds(postosValidos);
+            if (bounds.isValid()) {
+                map.fitBounds(bounds, { 
+                    padding: [50, 50],
+                    maxZoom: 14 
+                });
+                addDebugLog(`Mapa ajustado para bounds: ${bounds.toBBoxString()}`);
+            }
+        }
+        
+    } catch (error) {
+        addDebugLog(`Erro inesperado no carregamento: ${error.message}`, 'error');
+        showErrorOnMap(`Erro: ${error.message}`);
+    }
+}
+
+function validatePostosData(postosData) {
+    const validos = [];
+    let invalidos = 0;
+    
+    postosData.forEach((posto, index) => {
+        try {
+            // Validações básicas
+            if (!posto || typeof posto !== 'object') {
+                invalidos++;
+                return;
+            }
+            
+            // Verifica coordenadas
+            const lat = parseFloat(posto.latitude);
+            const lng = parseFloat(posto.longitude);
+            
+            if (isNaN(lat) || isNaN(lng)) {
+                invalidos++;
+                return;
+            }
+            
+            // Verifica se está dentro do Brasil (coordenadas aproximadas)
+            if (lat < -35 || lat > 5 || lng < -75 || lng > -30) {
+                invalidos++;
+                return;
+            }
+            
+            // Adiciona campos padronizados
+            const postoValido = {
+                id: posto.id || index,
+                nome: posto.nome || 'Posto sem nome',
+                endereco: posto.endereco || '',
+                cidade: posto.cidade || '',
+                uf: posto.uf || '',
+                latitude: lat,
+                longitude: lng,
+                bandeira: posto.bandeira || ''
+            };
+            
+            validos.push(postoValido);
+            
+        } catch (e) {
+            invalidos++;
+        }
+    });
+    
+    if (invalidos > 0) {
+        addDebugLog(`⚠️ ${invalidos} postos inválidos filtrados`, 'warn');
+    }
+    
+    return validos;
+}
+
+// ============================================================================
+// EXIBIÇÃO NO MAPA
+// ============================================================================
+function displayPostosOnMap(postos) {
+    addDebugLog(`Exibindo ${postos.length} postos no mapa...`);
+    
+    // Limpa marcadores anteriores
+    if (markersLayer) {
+        markersLayer.clearLayers();
+    }
+    
+    let marcadoresAdicionados = 0;
+    
+    postos.forEach((posto, index) => {
+        try {
+            // Cria ícone personalizado
+            const icon = createCustomIcon(posto.bandeira);
+            
+            // Cria marcador
+            const marker = L.marker([posto.latitude, posto.longitude], {
+                icon: icon,
+                title: posto.nome,
+                riseOnHover: true
+            });
+            
+            // Configura popup
+            marker.bindPopup(createPopupContent(posto), {
+                maxWidth: 300,
+                minWidth: 250,
+                autoPan: true
+            });
+            
+            // Evento de clique para abrir modal
+            marker.on('click', function(e) {
+                // Fecha outros popups
+                map.closePopup();
+                // Mostra detalhes
+                showPostoDetails(posto.id);
+            });
+            
+            // Adiciona ao cluster
+            markersLayer.addLayer(marker);
+            marcadoresAdicionados++;
+            
+            // Log dos primeiros 3
+            if (index < 3) {
+                addDebugLog(`📍 ${posto.nome} (${posto.latitude.toFixed(4)}, ${posto.longitude.toFixed(4)})`);
+            }
+            
+        } catch (error) {
+            addDebugLog(`Erro ao criar marcador ${index}: ${error.message}`, 'error');
+        }
+    });
+    
+    addDebugLog(`✅ ${marcadoresAdicionados} marcadores adicionados ao mapa`);
+    
+    // Atualiza contador
+    updatePostosCounter();
+}
+
+function createCustomIcon(bandeira) {
+    const color = getColorByBrand(bandeira);
+    const size = 36;
+    
+    return L.divIcon({
+        className: 'custom-marker',
+        html: `
+            <div style="
+                width: ${size}px;
+                height: ${size}px;
+                background: ${color};
+                background: linear-gradient(135deg, ${color} 0%, ${darkenColor(color, 20)} 100%);
                 border-radius: 50%;
-                width: 30px;
-                height: 30px;
+                border: 3px solid white;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-                border: 2px solid ${color};
-            ">
-                <i class="fas fa-gas-pump" style="color: ${color}; font-size: 16px;"></i>
-            </div>`,
-            iconSize: [30, 30],
-            iconAnchor: [15, 15],
-            popupAnchor: [0, -15]
-        });
+                color: white;
+                font-size: 16px;
+                font-weight: bold;
+                box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+                cursor: pointer;
+                transition: transform 0.2s;
+            " 
+            onmouseover="this.style.transform='scale(1.1)'"
+            onmouseout="this.style.transform='scale(1)'">
+                ⛽
+            </div>
+        `,
+        iconSize: [size, size],
+        iconAnchor: [size / 2, size / 2],
+        popupAnchor: [0, -size / 2]
+    });
+}
+
+function createPopupContent(posto) {
+    const bandeiraDisplay = posto.bandeira ? 
+        `<span class="badge" style="background-color: ${getColorByBrand(posto.bandeira)}">${posto.bandeira}</span>` :
+        '<small class="text-muted">Sem bandeira</small>';
+    
+    return `
+        <div class="popup-content">
+            <h6 class="popup-title">${posto.nome}</h6>
+            
+            <div class="popup-info">
+                <p class="mb-1">
+                    <i class="fas fa-map-marker-alt text-primary"></i>
+                    <strong> ${posto.endereco || 'Endereço não informado'}</strong>
+                </p>
+                <p class="mb-2">
+                    <i class="fas fa-city text-secondary"></i>
+                    ${posto.cidade || ''} ${posto.uf ? ' - ' + posto.uf : ''}
+                </p>
+            </div>
+            
+            <div class="popup-meta">
+                ${bandeiraDisplay}
+                <small class="text-muted d-block mt-1">
+                    ID: ${posto.id}
+                </small>
+            </div>
+            
+            <div class="popup-actions mt-2 text-center">
+                <button onclick="showPostoDetails(${posto.id})" 
+                        class="btn btn-sm btn-primary w-100">
+                    <i class="fas fa-gas-pump"></i> Ver Preços
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+// ============================================================================
+// FUNÇÕES AUXILIARES
+// ============================================================================
+function getColorByBrand(bandeira) {
+    if (!bandeira || bandeira.trim() === '') return '#6c757d';
+    
+    const brandColors = {
+        'shell': '#ff0000',      // Vermelho Shell
+        'ipiranga': '#ffcc00',   // Amarelo Ipiranga
+        'br': '#0033cc',         // Azul BR
+        'petrobras': '#009933',  // Verde Petrobras
+        'petrobrás': '#009933',  // Verde Petrobras
+        'raizen': '#ff6600',     // Laranja Raizen
+        'ale': '#9900cc',        // Roxo Ale
+        'texaco': '#cc0000',     // Vermelho Texaco
+        'ativo': '#0066cc',      // Azul Ativo
+        'vale': '#663300',       // Marrom Vale
+    };
+    
+    const bandeiraLower = bandeira.toLowerCase().trim();
+    
+    // Procura correspondência exata ou parcial
+    for (const [key, color] of Object.entries(brandColors)) {
+        if (bandeiraLower.includes(key)) {
+            return color;
+        }
     }
     
-    // Função para criar marcador
-    function createMarker(posto) {
-        const hasPrices = posto.precos && Object.keys(posto.precos).length > 0;
-        const markerColor = hasPrices ? '#e74c3c' : '#95a5a6';
+    // Se não encontrou, gera cor baseada no hash
+    let hash = 0;
+    for (let i = 0; i < bandeiraLower.length; i++) {
+        hash = bandeiraLower.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    
+    const defaultColors = [
+        '#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231',
+        '#911eb4', '#46f0f0', '#f032e6', '#bcf60c', '#fabebe',
+        '#008080', '#e6beff', '#9a6324', '#fffac8', '#800000',
+        '#aaffc3', '#808000', '#ffd8b1', '#000075', '#808080'
+    ];
+    
+    return defaultColors[Math.abs(hash) % defaultColors.length];
+}
+
+function darkenColor(color, percent) {
+    // Função simples para escurecer uma cor
+    const num = parseInt(color.replace('#', ''), 16);
+    const amt = Math.round(2.55 * percent);
+    const R = (num >> 16) - amt;
+    const G = (num >> 8 & 0x00FF) - amt;
+    const B = (num & 0x0000FF) - amt;
+    
+    return `#${(
+        0x1000000 +
+        (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
+        (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
+        (B < 255 ? B < 1 ? 0 : B : 255)
+    )
+    .toString(16)
+    .slice(1)}`;
+}
+
+function getPostosBounds(postos) {
+    if (!postos || postos.length === 0) {
+        return L.latLngBounds([[0, 0], [0, 0]]);
+    }
+    
+    const bounds = L.latLngBounds();
+    postos.forEach(posto => {
+        bounds.extend([posto.latitude, posto.longitude]);
+    });
+    
+    return bounds;
+}
+
+function updatePostosCounter() {
+    if (!markersLayer) return;
+    
+    const visibleCount = markersLayer.getLayers().length;
+    const totalCount = allPostos.length;
+    
+    let text = '';
+    if (visibleCount === totalCount) {
+        text = `${totalCount} postos carregados`;
+    } else {
+        text = `${visibleCount} postos visíveis de ${totalCount}`;
+    }
+    
+    $('#contador-postos').text(text);
+}
+
+function showErrorOnMap(message) {
+    const errorDiv = L.divIcon({
+        html: `
+            <div style="
+                background: #dc3545;
+                color: white;
+                padding: 10px 20px;
+                border-radius: 5px;
+                border: 2px solid white;
+                box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+                font-weight: bold;
+                text-align: center;
+            ">
+                ⚠️ ${message}
+            </div>
+        `,
+        iconSize: [300, 50],
+        iconAnchor: [150, 25]
+    });
+    
+    L.marker(CONFIG.initialCenter, { icon: errorDiv, zIndexOffset: 1000 })
+        .addTo(map)
+        .bindPopup(message)
+        .openPopup();
+}
+
+function showWarningOnMap(message) {
+    const warningDiv = L.divIcon({
+        html: `
+            <div style="
+                background: #ffc107;
+                color: #000;
+                padding: 10px 20px;
+                border-radius: 5px;
+                border: 2px solid white;
+                box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+                font-weight: bold;
+                text-align: center;
+            ">
+                ℹ️ ${message}
+            </div>
+        `,
+        iconSize: [300, 50],
+        iconAnchor: [150, 25]
+    });
+    
+    L.marker(CONFIG.initialCenter, { icon: warningDiv, zIndexOffset: 1000 })
+        .addTo(map)
+        .bindPopup(message);
+}
+
+// ============================================================================
+// FUNÇÕES DE INTERAÇÃO
+// ============================================================================
+function setupEventListeners() {
+    // Filtro por bandeira
+    $('#btn-filtrar').click(function() {
+        const bandeiraSelecionada = $('#filtro-bandeira').val();
         
-        // Ícone personalizado
-        const icon = createCustomIcon(markerColor);
-        
-        // Cria o marcador
-        const marker = L.marker([posto.latitude, posto.longitude], { 
-            icon: icon,
-            title: posto.nome
-        });
-        
-        // Popup com informações
-        let popupContent = `
-            <div style="min-width: 200px; max-width: 300px;">
-                <h6 style="margin: 0 0 10px 0;">
-                    <i class="fas fa-gas-pump" style="color: ${markerColor};"></i> 
-                    ${posto.nome}
-                </h6>
-                <p style="margin: 0 0 5px 0;">
-                    <small><i class="fas fa-flag"></i> ${posto.bandeira || 'Sem bandeira'}</small>
-                </p>
-                <p style="margin: 0 0 10px 0;">
-                    <small><i class="fas fa-map-marker-alt"></i> ${posto.endereco || ''}</small><br>
-                    <small>${posto.cidade}/${posto.uf}</small>
-                </p>
-        `;
-        
-        if (hasPrices) {
-            popupContent += '<hr style="margin: 10px 0;"><h6 style="font-size: 14px; margin: 0 0 10px 0;"><i class="fas fa-dollar-sign"></i> Preços:</h6>';
-            for (const [tipo, preco] of Object.entries(posto.precos)) {
-                if (preco) {
-                    const tipoNome = tipo.replace(/_/g, ' ').toLowerCase();
-                    const tipoFormatado = tipoNome.charAt(0).toUpperCase() + tipoNome.slice(1);
-                    popupContent += `
-                        <div class="d-flex justify-content-between" style="margin-bottom: 5px;">
-                            <span style="font-size: 13px;">${tipoFormatado}</span>
-                            <strong class="text-success" style="font-size: 14px;">R$ ${parseFloat(preco).toFixed(3)}</strong>
+        if (bandeiraSelecionada === 'todas') {
+            displayPostosOnMap(allPostos);
+        } else {
+            const postosFiltrados = allPostos.filter(posto => 
+                posto.bandeira && posto.bandeira.toLowerCase() === bandeiraSelecionada.toLowerCase()
+            );
+            
+            if (postosFiltrados.length > 0) {
+                displayPostosOnMap(postosFiltrados);
+                addDebugLog(`Filtrado por bandeira: ${bandeiraSelecionada} (${postosFiltrados.length} postos)`);
+            } else {
+                addDebugLog(`Nenhum posto encontrado para bandeira: ${bandeiraSelecionada}`, 'warn');
+                alert(`Nenhum posto encontrado com bandeira "${bandeiraSelecionada}"`);
+            }
+        }
+    });
+    
+    // Resetar vista
+    $('#btn-resetar').click(function() {
+        map.setView(CONFIG.initialCenter, CONFIG.initialZoom);
+        displayPostosOnMap(allPostos);
+        addDebugLog('Vista do mapa resetada');
+    });
+    
+    // Localização do usuário
+    $('#btn-localizar').click(function() {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    const userLatLng = [position.coords.latitude, position.coords.longitude];
+                    map.setView(userLatLng, 14);
+                    
+                    // Adiciona marcador da localização do usuário
+                    L.marker(userLatLng, {
+                        icon: L.divIcon({
+                            html: `<div style="
+                                width: 40px;
+                                height: 40px;
+                                background: #007bff;
+                                border-radius: 50%;
+                                border: 3px solid white;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                color: white;
+                                font-size: 20px;
+                                box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+                            ">📍</div>`
+                        })
+                    })
+                    .addTo(map)
+                    .bindPopup('Você está aqui!')
+                    .openPopup();
+                    
+                    addDebugLog(`Localização do usuário: ${userLatLng[0].toFixed(4)}, ${userLatLng[1].toFixed(4)}`);
+                },
+                function(error) {
+                    addDebugLog(`Erro ao obter localização: ${error.message}`, 'error');
+                    alert('Não foi possível obter sua localização. Verifique as permissões do navegador.');
+                }
+            );
+        } else {
+            alert('Seu navegador não suporta geolocalização.');
+        }
+    });
+    
+    // Botão de debug
+    $('#btn-debug').click(function() {
+        showDebugInfo();
+        $('#modalDebug').modal('show');
+    });
+    
+    // Atualizações do mapa
+    map.on('zoomend', function() {
+        updatePostosCounter();
+    });
+    
+    map.on('moveend', function() {
+        updatePostosCounter();
+    });
+    
+    addDebugLog('Event listeners configurados');
+}
+
+// ============================================================================
+// DETALHES DO POSTO (MODAL)
+// ============================================================================
+function showPostoDetails(postoId) {
+    addDebugLog(`Abrindo detalhes do posto ${postoId}...`);
+    
+    // Configura link para página completa
+    $('#linkDetalhesCompleto').attr('href', `/posto/${postoId}/`);
+    
+    // Busca dados via API
+    fetch(`/api/postos/${postoId}/precos/`)
+        .then(response => {
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return response.json();
+        })
+        .then(data => {
+            if (data.success && data.precos && data.precos.length > 0) {
+                let html = `
+                    <div class="posto-precos">
+                        <h6 class="mb-3">Histórico de Preços</h6>
+                `;
+                
+                // Agrupa por tipo de combustível
+                const precosPorTipo = {};
+                data.precos.forEach(preco => {
+                    const tipo = preco.tipo_display || preco.tipo || 'Desconhecido';
+                    if (!precosPorTipo[tipo]) {
+                        precosPorTipo[tipo] = [];
+                    }
+                    precosPorTipo[tipo].push(preco);
+                });
+                
+                // Exibe por tipo
+                Object.entries(precosPorTipo).forEach(([tipo, precos]) => {
+                    html += `
+                        <div class="card mb-2">
+                            <div class="card-header py-2">
+                                <strong>${tipo}</strong>
+                            </div>
+                            <div class="card-body p-2">
+                                <div class="table-responsive">
+                                    <table class="table table-sm mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th>Preço</th>
+                                                <th>Data</th>
+                                                <th>Fonte</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                    `;
+                    
+                    precos.forEach(preco => {
+                        html += `
+                            <tr>
+                                <td class="fw-bold text-primary">
+                                    R$ ${typeof preco.preco === 'number' ? preco.preco.toFixed(3) : preco.preco}
+                                </td>
+                                <td class="text-muted">${preco.data || 'N/A'}</td>
+                                <td><small class="badge bg-secondary">${preco.fonte || 'N/A'}</small></td>
+                            </tr>
+                        `;
+                    });
+                    
+                    html += `
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
                     `;
-                }
-            }
-        } else {
-            popupContent += '<hr style="margin: 10px 0;"><p class="text-muted" style="font-size: 12px; margin: 0;"><small>Sem preços registrados</small></p>';
-        }
-        
-        popupContent += `
-            <hr style="margin: 10px 0;">
-            <a href="/posto/${posto.id}/" class="btn btn-sm btn-primary w-100" style="font-size: 12px;">
-                <i class="fas fa-info-circle"></i> Ver Detalhes Completos
-            </a>
-        </div>`;
-        
-        marker.bindPopup(popupContent);
-        
-        return marker;
-    }
-    
-    // Função para carregar todos os marcadores
-    function loadAllMarkers() {
-        // Limpa marcadores existentes
-        markerLayer.clearLayers();
-        markers = [];
-        
-        // Adiciona todos os marcadores
-        postosData.forEach(posto => {
-            if (posto.latitude && posto.longitude) {
-                const marker = createMarker(posto);
-                marker.addTo(markerLayer);
-                markers.push({
-                    marker: marker,
-                    posto: posto,
-                    visible: true
                 });
-            }
-        });
-        
-        // Atualiza contador
-        updateCounter(markers.length);
-        
-        // Ajusta o zoom para mostrar todos os marcadores
-        if (markers.length > 0) {
-            const group = new L.featureGroup(markers.map(m => m.marker));
-            map.fitBounds(group.getBounds().pad(0.1));
-        }
-    }
-    
-    // Carrega todos os marcadores inicialmente
-    loadAllMarkers();
-    
-    // Função para filtrar marcadores
-    function filterMarkers() {
-        const combustivel = $('#filterCombustivel').val();
-        const bandeira = $('#filterBandeira').val();
-        
-        let visibleCount = 0;
-        
-        markers.forEach(item => {
-            const posto = item.posto;
-            let show = true;
-            
-            // Filtro por bandeira
-            if (bandeira !== 'all') {
-                if (!posto.bandeira || posto.bandeira !== bandeira) {
-                    show = false;
-                }
-            }
-            
-            // Filtro por combustível
-            if (combustivel !== 'all') {
-                if (!posto.precos || !posto.precos[combustivel]) {
-                    show = false;
-                }
-            }
-            
-            // Atualiza visibilidade
-            if (show) {
-                markerLayer.addLayer(item.marker);
-                item.visible = true;
-                visibleCount++;
+                
+                html += `
+                        <div class="alert alert-info mt-3">
+                            <i class="fas fa-info-circle"></i>
+                            Mostrando os últimos ${data.precos.length} registros.
+                        </div>
+                    </div>
+                `;
+                
+                $('#modalDetalhesCorpo').html(html);
+                $('#modalDetalhesTitulo').text('Preços do Posto');
+                
+                addDebugLog(`Detalhes carregados: ${data.precos.length} preços`);
+                
             } else {
-                markerLayer.removeLayer(item.marker);
-                item.visible = false;
+                $('#modalDetalhesCorpo').html(`
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Nenhum preço cadastrado para este posto.
+                    </div>
+                `);
+                $('#modalDetalhesTitulo').text('Posto sem preços');
+                addDebugLog('Posto sem preços cadastrados', 'warn');
             }
+        })
+        .catch(error => {
+            $('#modalDetalhesCorpo').html(`
+                <div class="alert alert-danger">
+                    <i class="fas fa-times-circle"></i>
+                    Erro ao carregar preços: ${error.message}
+                </div>
+            `);
+            $('#modalDetalhesTitulo').text('Erro');
+            addDebugLog(`Erro ao carregar detalhes: ${error.message}`, 'error');
         });
+    
+    // Abre o modal
+    $('#modalDetalhes').modal('show');
+}
+
+// ============================================================================
+// INICIALIZAÇÃO
+// ============================================================================
+$(document).ready(function() {
+    addDebugLog('Documento pronto, inicializando mapa...');
+    
+    // Pequeno delay para garantir que tudo carregou
+    setTimeout(() => {
+        initMap();
         
-        // Atualiza contador
-        updateCounter(visibleCount);
-        
-        // Ajusta o zoom para mostrar marcadores visíveis
-        const visibleMarkers = markers.filter(m => m.visible).map(m => m.marker);
-        if (visibleMarkers.length > 0) {
-            const group = new L.featureGroup(visibleMarkers);
-            map.fitBounds(group.getBounds().pad(0.1));
-        }
-    }
-    
-    // Função para atualizar contador
-    function updateCounter(count) {
-        $('#postosContador').text(count + ' postos');
-        if (count === 0) {
-            $('#postosContador').addClass('text-warning');
-        } else {
-            $('#postosContador').removeClass('text-warning');
-        }
-    }
-    
-    // Evento para filtros
-    $('#applyFilters').click(filterMarkers);
-    
-    // Evento para resetar filtros
-    $('#resetFilters').click(function() {
-        $('#filterCombustivel').val('all');
-        $('#filterBandeira').val('all');
-        loadAllMarkers();
-    });
-    
-    // Evento para clicar nos itens da lista
-    $('.posto-item').click(function() {
-        const postoId = $(this).data('id');
-        const markerItem = markers.find(m => m.posto.id === postoId);
-        
-        if (markerItem && markerItem.visible) {
-            markerItem.marker.openPopup();
-            map.setView([markerItem.posto.latitude, markerItem.posto.longitude], 14);
-        }
-    });
-    
-    // Evento para botão "ver" na lista
-    $('.btn-ver-posto').click(function(e) {
-        e.stopPropagation();
-        const postoId = $(this).data('id');
-        const markerItem = markers.find(m => m.posto.id === postoId);
-        
-        if (markerItem && markerItem.visible) {
-            markerItem.marker.openPopup();
-            map.setView([markerItem.posto.latitude, markerItem.posto.longitude], 14);
-        }
-    });
-    
-    // Adiciona funcionalidade de busca por localização do usuário
-    if (navigator.geolocation) {
-        const locationBtn = L.control({position: 'topleft'});
-        locationBtn.onAdd = function(map) {
-            const div = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
-            div.innerHTML = '<a href="#" title="Minha localização" style="display: block; padding: 5px 10px; background: white; border-radius: 4px; box-shadow: 0 1px 5px rgba(0,0,0,0.4);"><i class="fas fa-location-arrow"></i></a>';
-            return div;
-        };
-        locationBtn.addTo(map);
-        
-        locationBtn.getContainer().addEventListener('click', function(e) {
-            e.preventDefault();
-            navigator.geolocation.getCurrentPosition(function(position) {
-                map.setView([position.coords.latitude, position.coords.longitude], 13);
-            });
-        });
-    }
+        // Fallback: se não carregar em 3 segundos, tenta novamente
+        setTimeout(() => {
+            if (!map) {
+                addDebugLog('Fallback: tentando inicializar mapa novamente...', 'warn');
+                initMap();
+            }
+        }, 3000);
+    }, 100);
 });
+
+// Exporta funções para escopo global (se necessário)
+window.showPostoDetails = showPostoDetails;
 </script>
 {% endblock %}

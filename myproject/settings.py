@@ -8,19 +8,26 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-substitua-por-uma-chave-real')
 
-# DEBUG - DEFINIÇÃO CLARA E ÚNICA
-DEBUG = os.environ.get('DEBUG', 'True') == 'True'
+# DEBUG: Baseado no ambiente
+IS_RENDER = 'RENDER' in os.environ
+DEBUG = os.environ.get('DEBUG', 'False') == 'True' if not IS_RENDER else False
 
-# Configura ALLOWED_HOSTS baseado no DEBUG
+# Configura ALLOWED_HOSTS
 if DEBUG:
-    ALLOWED_HOSTS = ['*']  # Desenvolvimento
+    ALLOWED_HOSTS = ['*']
 else:
+    # Em produção no Render
     ALLOWED_HOSTS = [
-        '.onrender.com',
         'pricetrackerfuel.onrender.com',
-        'localhost', 
-        '127.0.0.1'
+        'localhost',
+        '127.0.0.1',
+        '.onrender.com',  # Para qualquer subdomínio .onrender.com
     ]
+    
+    # Adiciona RENDER_EXTERNAL_HOSTNAME se existir
+    RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
+    if RENDER_EXTERNAL_HOSTNAME:
+        ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 
 # Application definition
 INSTALLED_APPS = [
@@ -31,12 +38,12 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'myapp',
-    'whitenoise.runserver_nostatic',
+    'whitenoise.runserver_nostatic',  # Remova esta linha se não for usar em dev
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Correto: logo após SecurityMiddleware
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -48,26 +55,13 @@ MIDDLEWARE = [
 ROOT_URLCONF = 'myproject.urls'
 WSGI_APPLICATION = 'myproject.wsgi.application'
 
-# Database - CONFIGURAÇÃO CORRIGIDA
-DATABASE_URL = os.environ.get('DATABASE_URL')
-
-if DATABASE_URL and DATABASE_URL.startswith('postgres://'):
-    # PostgreSQL no Render (produção)
-    DATABASES = {
-        'default': dj_database_url.parse(
-            DATABASE_URL,
-            conn_max_age=600,
-            ssl_require=True
-        )
-    }
-else:
-    # SQLite local (desenvolvimento)
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
-    }
+# Database
+DATABASES = {
+    'default': dj_database_url.config(
+        default='sqlite:///' + str(BASE_DIR / 'db.sqlite3'),
+        conn_max_age=600
+    )
+}
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -93,8 +87,23 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_DIRS = [BASE_DIR / 'static']  # Adicione se tiver uma pasta static na raiz
+
+# WhiteNoise configuration
+STORAGES = {
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
+
+# Em desenvolvimento, use storage mais simples
+if DEBUG:
+    STORAGES = {
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+        },
+    }
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
@@ -103,7 +112,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR, 'templates')],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -116,25 +125,38 @@ TEMPLATES = [
     },
 ]
 
-# CONFIGURAÇÕES DE SEGURANÇA SEPARADAS
-# Produção (Render)
-if 'RENDER' in os.environ:
-    # Garante que está em produção
+# CONFIGURAÇÕES DE SEGURANÇA
+if IS_RENDER:
+    # Produção no Render
     DEBUG = False
     
-    # Segurança HTTPS
+    # HTTPS/SSL
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
-    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_SECONDS = 31536000  # 1 ano
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
+    
+    # Logging para debug
+    LOGGING = {
+        'version': 1,
+        'disable_existing_loggers': False,
+        'handlers': {
+            'console': {
+                'class': 'logging.StreamHandler',
+            },
+        },
+        'root': {
+            'handlers': ['console'],
+            'level': 'INFO',
+        },
+    }
 
 # Desenvolvimento local
 else:
-    # Desativa SSL para desenvolvimento
     SECURE_SSL_REDIRECT = False
     SESSION_COOKIE_SECURE = False
     CSRF_COOKIE_SECURE = False
