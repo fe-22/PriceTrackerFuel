@@ -1,4 +1,4 @@
-# myapp/views.py - VERSÃO CORRIGIDA
+from django.conf import settings
 import json
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, get_object_or_404, redirect
@@ -190,153 +190,204 @@ def buscar_por_endereco(request):
     
     return render(request, 'myapp/buscar_endereco.html', context)
 
-
-# myapp/views.py - VERSÃO OTIMIZADA DO MAPA
-
 def mapa_postos(request):
-    """View para exibir mapa de postos"""
+    """View para exibir mapa de postos - VERSÃO FINAL CORRIGIDA"""
     try:
         from .models import Estabelecimento
+        import json
         import random
         
-        print(f"🔍 Buscando postos com coordenadas...")
+        print(f"🔍 [MAPA] Iniciando busca de postos...")
         
-        # Filtra postos COM coordenadas válidas
-        estabelecimentos = Estabelecimento.objects.filter(
+        # MÉTODO SIMPLES E EFICIENTE: busca postos não nulos
+        postos_queryset = Estabelecimento.objects.filter(
             latitude__isnull=False,
             longitude__isnull=False
-        ).exclude(
-            latitude=0,
-            longitude=0
         )
         
-        print(f"📊 Encontrados: {estabelecimentos.count()} postos com coordenadas")
+        print(f"📊 [MAPA] Postos não nulos: {postos_queryset.count()}")
         
-        # Se não encontrar nenhum, gera alguns aleatórios
-        if estabelecimentos.count() == 0:
-            print("⚠️ Nenhum posto com coordenadas. Gerando fictícias...")
-            
-            # Pega alguns postos aleatórios
-            estabelecimentos = Estabelecimento.objects.all()[:20]
-            
-            postos_data = []
-            for i, estabelecimento in enumerate(estabelecimentos):
-                # Gera coordenadas fictícias distribuídas pelo Brasil
-                lat_base = -15.0 + (i % 10) * 3.0  # De -15 a +15
-                lng_base = -50.0 + (i % 15) * 3.0  # De -50 a -5
-                lat = lat_base + random.uniform(-1.0, 1.0)
-                lng = lng_base + random.uniform(-1.0, 1.0)
+        # LIMITA para performance - máximo 1000 postos
+        LIMITE_POSTOS = 1000
+        if postos_queryset.count() > LIMITE_POSTOS:
+            print(f"⚠️ [MAPA] Limitando para {LIMITE_POSTOS} postos (performance)")
+            postos_queryset = postos_queryset[:LIMITE_POSTOS]
+        
+        postos_validos = []
+        
+        for estabelecimento in postos_queryset:
+            try:
+                # Converte Decimal para string, depois para float
+                lat_str = str(estabelecimento.latitude).strip() if estabelecimento.latitude else ""
+                lng_str = str(estabelecimento.longitude).strip() if estabelecimento.longitude else ""
                 
-                postos_data.append({
+                if not lat_str or not lng_str:
+                    continue
+                
+                lat = float(lat_str)
+                lng = float(lng_str)
+                
+                # Validação básica
+                if lat == 0 and lng == 0:
+                    continue
+                
+                # Verifica se está no Brasil (aproximadamente)
+                if not (-35 <= lat <= 5 and -75 <= lng <= -30):
+                    print(f"⚠️ [MAPA] Posto fora do Brasil: {lat}, {lng} - {estabelecimento.nome_fantasia}")
+                    # Mesmo assim inclui, mas marca
+                
+                # Adiciona aos válidos
+                postos_validos.append({
                     'id': estabelecimento.id,
                     'nome': estabelecimento.nome_fantasia or estabelecimento.razao_social or f'Posto {estabelecimento.id}',
                     'endereco': estabelecimento.endereco or '',
                     'cidade': estabelecimento.cidade or '',
                     'uf': estabelecimento.uf or '',
-                    'latitude': round(lat, 6),
-                    'longitude': round(lng, 6),
+                    'latitude': lat,
+                    'longitude': lng,
                     'bandeira': estabelecimento.bandeira or '',
-                    'is_demo': True,  # Flag para dados demo
+                    'is_demo': False,  # DADOS REAIS!
                 })
+                
+            except (ValueError, TypeError, AttributeError) as e:
+                # Ignora erros de conversão
+                continue
+        
+        print(f"✅ [MAPA] Postos válidos para exibição: {len(postos_validos)}")
+        
+        # SE POUCOS POSTOS VÁLIDOS, tenta método mais agressivo
+        if len(postos_validos) < 10:
+            print("⚠️ [MAPA] Poucos postos válidos. Buscando mais...")
             
-            print(f"📊 Gerados: {len(postos_data)} postos demo")
-        else:
-            # Usa coordenadas reais do banco
-            postos_data = []
-            for estabelecimento in estabelecimentos[:200]:  # Limita a 200
+            # Tenta buscar mais postos, incluindo possíveis erros
+            mais_postos = Estabelecimento.objects.all()[:100]
+            
+            for estabelecimento in mais_postos:
                 try:
-                    lat = float(estabelecimento.latitude)
-                    lng = float(estabelecimento.longitude)
+                    # Pula se já estiver na lista
+                    if any(p['id'] == estabelecimento.id for p in postos_validos):
+                        continue
                     
-                    postos_data.append({
-                        'id': estabelecimento.id,
-                        'nome': estabelecimento.nome_fantasia or estabelecimento.razao_social or 'Posto',
-                        'endereco': estabelecimento.endereco or '',
-                        'cidade': estabelecimento.cidade or '',
-                        'uf': estabelecimento.uf or '',
-                        'latitude': lat,
-                        'longitude': lng,
-                        'bandeira': estabelecimento.bandeira or '',
-                        'is_demo': False,
-                    })
-                except (ValueError, TypeError):
+                    # Tenta obter coordenadas de qualquer forma
+                    lat_raw = estabelecimento.latitude
+                    lng_raw = estabelecimento.longitude
+                    
+                    if lat_raw is None or lng_raw is None:
+                        continue
+                    
+                    # Converte para string e tenta float
+                    try:
+                        lat = float(str(lat_raw).replace(',', '.').strip())
+                        lng = float(str(lng_raw).replace(',', '.').strip())
+                    except:
+                        continue
+                    
+                    # Adiciona se for coordenada razoável
+                    if -90 <= lat <= 90 and -180 <= lng <= 180:
+                        postos_validos.append({
+                            'id': estabelecimento.id,
+                            'nome': estabelecimento.nome_fantasia or estabelecimento.razao_social or f'Posto {estabelecimento.id}',
+                            'endereco': estabelecimento.endereco or '',
+                            'cidade': estabelecimento.cidade or '',
+                            'uf': estabelecimento.uf or '',
+                            'latitude': lat,
+                            'longitude': lng,
+                            'bandeira': estabelecimento.bandeira or '',
+                            'is_demo': False,
+                        })
+                except:
                     continue
         
-        # Se ainda não tiver dados, cria exemplos
-        if len(postos_data) == 0:
-            print("⚠️ Criando dados de exemplo...")
-            postos_data = [
+        # SE AINDA POUCOS, adiciona exemplos (APENAS SE NECESSÁRIO)
+        if len(postos_validos) < 3:
+            print("⚠️ [MAPA] Ainda poucos postos. Adicionando exemplos...")
+            
+            exemplos = [
                 {
-                    'id': 1,
-                    'nome': 'Posto Shell Express (Exemplo)',
-                    'latitude': -23.5505,
-                    'longitude': -46.6333,
-                    'endereco': 'Av. Paulista, 1000',
-                    'cidade': 'São Paulo',
-                    'uf': 'SP',
+                    'id': 999991,
+                    'nome': 'Posto Shell (Exemplo)',
+                    'latitude': -15.7797,
+                    'longitude': -47.9297,
+                    'endereco': 'Eixo Monumental, 1000',
+                    'cidade': 'Brasília',
+                    'uf': 'DF',
                     'bandeira': 'Shell',
                     'is_demo': True,
                 },
                 {
-                    'id': 2,
-                    'nome': 'Posto Ipiranga Centro (Exemplo)',
-                    'latitude': -23.5605,
-                    'longitude': -46.6433,
-                    'endereco': 'Rua Augusta, 500',
-                    'cidade': 'São Paulo',
-                    'uf': 'SP',
+                    'id': 999992,
+                    'nome': 'Posto Ipiranga (Exemplo)',
+                    'latitude': -15.7897,
+                    'longitude': -47.9397,
+                    'endereco': 'Asa Sul, 200',
+                    'cidade': 'Brasília',
+                    'uf': 'DF',
                     'bandeira': 'Ipiranga',
                     'is_demo': True,
                 },
                 {
-                    'id': 3,
+                    'id': 999993,
                     'nome': 'Posto BR (Exemplo)',
-                    'latitude': -23.5705,
-                    'longitude': -46.6533,
-                    'endereco': 'Av. Rebouças, 2000',
-                    'cidade': 'São Paulo',
-                    'uf': 'SP',
+                    'latitude': -15.7997,
+                    'longitude': -47.9497,
+                    'endereco': 'Asa Norte, 300',
+                    'cidade': 'Brasília',
+                    'uf': 'DF',
                     'bandeira': 'BR',
                     'is_demo': True,
-                },
+                }
             ]
+            
+            postos_validos.extend(exemplos)
         
         # Bandas disponíveis
         bandeiras = list(Estabelecimento.objects.exclude(
             bandeira__isnull=True
         ).exclude(
-            bandeira__exact=''
+            bandeira=''
         ).values_list('bandeira', flat=True).distinct().order_by('bandeira')[:20])
+        
+        if not bandeiras and len(postos_validos) > 0:
+            # Extrai bandeiras dos postos válidos
+            bandeiras_from_postos = set()
+            for p in postos_validos:
+                if p.get('bandeira'):
+                    bandeiras_from_postos.add(p['bandeira'])
+            bandeiras = sorted(bandeiras_from_postos)
         
         if not bandeiras:
             bandeiras = ['Shell', 'Ipiranga', 'BR', 'Petrobras', 'Ale']
         
-        import json
-        postos_json = json.dumps(postos_data)
+        # Prepara JSON
+        postos_json = json.dumps(postos_validos, default=str, ensure_ascii=False)
+        
+        print(f"📤 [MAPA] Enviando {len(postos_validos)} postos para o mapa")
+        print(f"📤 [MAPA] Dados reais: {len([p for p in postos_validos if not p.get('is_demo', False)])}")
+        print(f"📤 [MAPA] Dados demo: {len([p for p in postos_validos if p.get('is_demo', False)])}")
         
         context = {
             'postos_json': postos_json,
-            'total_postos': len(postos_data),
+            'total_postos': len(postos_validos),
             'bandeiras': bandeiras,
-            'debug_mode': settings.DEBUG,
-            'has_real_data': any(not p.get('is_demo', False) for p in postos_data),
+            'debug_mode': settings.DEBUG,  # AGORA FUNCIONA!
+            'has_real_data': len([p for p in postos_validos if not p.get('is_demo', False)]) > 0,
         }
         
-        print(f"✅ Enviando {len(postos_data)} postos para o mapa")
+        return render(request, 'myapp/mapa.html', context)
         
     except Exception as e:
-        print(f"❌ Erro na view mapa_postos: {e}")
+        print(f"❌ [MAPA] ERRO: {e}")
         import traceback
         traceback.print_exc()
         
-        # Fallback garantido
+        # FALLBACK SIMPLES
         postos_data = [
             {
-                'id': 999,
-                'nome': 'Posto de Teste',
+                'id': 1,
+                'nome': 'Posto de Teste (ERRO)',
                 'latitude': -15.7797,
                 'longitude': -47.9297,
-                'endereco': 'Coordenadas de exemplo',
+                'endereco': 'Coordenadas de fallback',
                 'cidade': 'Brasília',
                 'uf': 'DF',
                 'bandeira': 'Teste',
@@ -352,8 +403,10 @@ def mapa_postos(request):
             'debug_mode': True,
             'has_real_data': False,
         }
-    
-    return render(request, 'myapp/mapa.html', context)
+        
+        return render(request, 'myapp/mapa.html', context)
+
+
 
 
 # NOVA API PARA CARREGAMENTO DINÂMICO
@@ -963,4 +1016,40 @@ def debug_postos(request):
             longitude__isnull=False
         ).count(),
         'amostra': debug_info
+    })
+    
+def debug_coordenadas(request):
+    """View para debug de coordenadas dos postos"""
+    from .models import Estabelecimento
+    import json
+    
+    # Verifica todos os postos
+    todos_postos = Estabelecimento.objects.all()
+    
+    debug_data = []
+    for posto in todos_postos[:50]:  # Primeiros 50
+        debug_data.append({
+            'id': posto.id,
+            'nome': posto.nome_fantasia,
+            'latitude_raw': posto.latitude,
+            'longitude_raw': posto.longitude,
+            'latitude_float': None,
+            'longitude_float': None,
+            'convertido': False,
+            'cidade': posto.cidade,
+            'bandeira': posto.bandeira,
+        })
+    
+    # Tenta converter para float
+    for data in debug_data:
+        try:
+            data['latitude_float'] = float(data['latitude_raw']) if data['latitude_raw'] else None
+            data['longitude_float'] = float(data['longitude_raw']) if data['longitude_raw'] else None
+            data['convertido'] = data['latitude_float'] is not None and data['longitude_float'] is not None
+        except:
+            data['convertido'] = False
+    
+    return render(request, 'myapp/debug_coordenadas.html', {
+        'postos': debug_data,
+        'total_postos': todos_postos.count(),
     })
