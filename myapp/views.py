@@ -191,7 +191,7 @@ def buscar_por_endereco(request):
     return render(request, 'myapp/buscar_endereco.html', context)
 
 def mapa_postos(request):
-    """View para exibir mapa de postos - VERSÃO FINAL CORRIGIDA"""
+    """View para exibir mapa de postos - VERSÃO INTELIGENTE"""
     try:
         from .models import Estabelecimento
         import json
@@ -199,30 +199,28 @@ def mapa_postos(request):
         
         print(f"🔍 [MAPA] Iniciando busca de postos...")
         
-        # MÉTODO SIMPLES E EFICIENTE: busca postos não nulos
-        postos_queryset = Estabelecimento.objects.filter(
+        # PRIMEIRO: Busca postos REAIS do banco
+        postos_reais_queryset = Estabelecimento.objects.filter(
             latitude__isnull=False,
             longitude__isnull=False
         )
         
-        print(f"📊 [MAPA] Postos não nulos: {postos_queryset.count()}")
-        
-        # LIMITA para performance - máximo 1000 postos
-        LIMITE_POSTOS = 1000
-        if postos_queryset.count() > LIMITE_POSTOS:
-            print(f"⚠️ [MAPA] Limitando para {LIMITE_POSTOS} postos (performance)")
-            postos_queryset = postos_queryset[:LIMITE_POSTOS]
-        
         postos_validos = []
+        postos_reais_count = 0
         
-        for estabelecimento in postos_queryset:
+        # Tenta carregar dados reais
+        for estabelecimento in postos_reais_queryset[:800]:  # Limite razoável
             try:
-                # Converte Decimal para string, depois para float
+                # Converte para string primeiro
                 lat_str = str(estabelecimento.latitude).strip() if estabelecimento.latitude else ""
                 lng_str = str(estabelecimento.longitude).strip() if estabelecimento.longitude else ""
                 
                 if not lat_str or not lng_str:
                     continue
+                
+                # Substitui vírgula por ponto para garantir conversão
+                lat_str = lat_str.replace(',', '.')
+                lng_str = lng_str.replace(',', '.')
                 
                 lat = float(lat_str)
                 lng = float(lng_str)
@@ -230,11 +228,6 @@ def mapa_postos(request):
                 # Validação básica
                 if lat == 0 and lng == 0:
                     continue
-                
-                # Verifica se está no Brasil (aproximadamente)
-                if not (-35 <= lat <= 5 and -75 <= lng <= -30):
-                    print(f"⚠️ [MAPA] Posto fora do Brasil: {lat}, {lng} - {estabelecimento.nome_fantasia}")
-                    # Mesmo assim inclui, mas marca
                 
                 # Adiciona aos válidos
                 postos_validos.append({
@@ -246,170 +239,166 @@ def mapa_postos(request):
                     'latitude': lat,
                     'longitude': lng,
                     'bandeira': estabelecimento.bandeira or '',
-                    'is_demo': False,  # DADOS REAIS!
+                    'is_demo': False,  # DADO REAL!
                 })
+                postos_reais_count += 1
                 
-            except (ValueError, TypeError, AttributeError) as e:
-                # Ignora erros de conversão
+            except (ValueError, TypeError, AttributeError):
                 continue
         
-        print(f"✅ [MAPA] Postos válidos para exibição: {len(postos_validos)}")
+        print(f"✅ [MAPA] Encontrados {postos_reais_count} postos reais no banco")
         
-        # SE POUCOS POSTOS VÁLIDOS, tenta método mais agressivo
-        if len(postos_validos) < 10:
-            print("⚠️ [MAPA] Poucos postos válidos. Buscando mais...")
+        # DECISÃO: Se tem muitos postos reais, usa só eles
+        # Se tem poucos, complementa com dados demo
+        if postos_reais_count >= 100:
+            # Tem dados suficientes, usa só os reais
+            print(f"📊 [MAPA] Usando apenas dados reais ({postos_reais_count} postos)")
+        else:
+            # Poucos dados reais, complementa com demo
+            print(f"⚠️ [MAPA] Apenas {postos_reais_count} postos reais. Complementando...")
             
-            # Tenta buscar mais postos, incluindo possíveis erros
-            mais_postos = Estabelecimento.objects.all()[:100]
-            
-            for estabelecimento in mais_postos:
-                try:
-                    # Pula se já estiver na lista
-                    if any(p['id'] == estabelecimento.id for p in postos_validos):
-                        continue
-                    
-                    # Tenta obter coordenadas de qualquer forma
-                    lat_raw = estabelecimento.latitude
-                    lng_raw = estabelecimento.longitude
-                    
-                    if lat_raw is None or lng_raw is None:
-                        continue
-                    
-                    # Converte para string e tenta float
-                    try:
-                        lat = float(str(lat_raw).replace(',', '.').strip())
-                        lng = float(str(lng_raw).replace(',', '.').strip())
-                    except:
-                        continue
-                    
-                    # Adiciona se for coordenada razoável
-                    if -90 <= lat <= 90 and -180 <= lng <= 180:
-                        postos_validos.append({
-                            'id': estabelecimento.id,
-                            'nome': estabelecimento.nome_fantasia or estabelecimento.razao_social or f'Posto {estabelecimento.id}',
-                            'endereco': estabelecimento.endereco or '',
-                            'cidade': estabelecimento.cidade or '',
-                            'uf': estabelecimento.uf or '',
-                            'latitude': lat,
-                            'longitude': lng,
-                            'bandeira': estabelecimento.bandeira or '',
-                            'is_demo': False,
-                        })
-                except:
-                    continue
-        
-        # SE AINDA POUCOS, adiciona exemplos (APENAS SE NECESSÁRIO)
-        if len(postos_validos) < 3:
-            print("⚠️ [MAPA] Ainda poucos postos. Adicionando exemplos...")
-            
-            exemplos = [
-                {
-                    'id': 999991,
-                    'nome': 'Posto Shell (Exemplo)',
-                    'latitude': -15.7797,
-                    'longitude': -47.9297,
-                    'endereco': 'Eixo Monumental, 1000',
-                    'cidade': 'Brasília',
-                    'uf': 'DF',
-                    'bandeira': 'Shell',
-                    'is_demo': True,
-                },
-                {
-                    'id': 999992,
-                    'nome': 'Posto Ipiranga (Exemplo)',
-                    'latitude': -15.7897,
-                    'longitude': -47.9397,
-                    'endereco': 'Asa Sul, 200',
-                    'cidade': 'Brasília',
-                    'uf': 'DF',
-                    'bandeira': 'Ipiranga',
-                    'is_demo': True,
-                },
-                {
-                    'id': 999993,
-                    'nome': 'Posto BR (Exemplo)',
-                    'latitude': -15.7997,
-                    'longitude': -47.9497,
-                    'endereco': 'Asa Norte, 300',
-                    'cidade': 'Brasília',
-                    'uf': 'DF',
-                    'bandeira': 'BR',
-                    'is_demo': True,
-                }
+            # Coordenadas de cidades brasileiras (30 principais)
+            cidades_brasil = [
+                (-23.5505, -46.6333, 'São Paulo', 'SP'),
+                (-15.7797, -47.9297, 'Brasília', 'DF'),
+                (-22.9068, -43.1729, 'Rio de Janeiro', 'RJ'),
+                (-19.9167, -43.9345, 'Belo Horizonte', 'MG'),
+                (-30.0331, -51.2300, 'Porto Alegre', 'RS'),
+                (-3.7172, -38.5433, 'Fortaleza', 'CE'),
+                (-8.0476, -34.8770, 'Recife', 'PE'),
+                (-12.9714, -38.5014, 'Salvador', 'BA'),
+                (-1.4558, -48.4902, 'Belém', 'PA'),
+                (-16.6869, -49.2648, 'Goiânia', 'GO'),
+                (-27.5954, -48.5480, 'Florianópolis', 'SC'),
+                (-5.7950, -35.2094, 'Natal', 'RN'),
+                (-9.6667, -35.7167, 'Maceió', 'AL'),
+                (-20.3194, -40.3378, 'Vitória', 'ES'),
+                (-21.1750, -47.8103, 'Ribeirão Preto', 'SP'),
+                (-3.1019, -60.0250, 'Manaus', 'AM'),
+                (-10.9472, -37.0731, 'Aracaju', 'SE'),
+                (-7.2307, -35.8817, 'João Pessoa', 'PB'),
+                (-20.4697, -54.6201, 'Campo Grande', 'MS'),
+                (-11.6842, -43.4328, 'Teresina', 'PI'),
+                (-23.3045, -51.1696, 'Londrina', 'PR'),
+                (-22.1200, -51.3900, 'Presidente Prudente', 'SP'),
+                (-29.1686, -51.1794, 'Caxias do Sul', 'RS'),
+                (-23.9608, -46.3339, 'Santos', 'SP'),
+                (-25.4296, -49.2713, 'Curitiba', 'PR'),
+                (-22.2528, -54.8167, 'Dourados', 'MS'),
+                (-8.7612, -63.9039, 'Porto Velho', 'RO'),
+                (-9.9747, -67.8100, 'Rio Branco', 'AC'),
+                (-2.5283, -44.3044, 'São Luís', 'MA'),
+                (-18.9113, -48.2622, 'Uberlândia', 'MG'),
             ]
             
-            postos_validos.extend(exemplos)
+            bandeiras = ['Shell', 'Ipiranga', 'BR', 'Petrobras', 'Ale', 'Raizen', 'Vale', 'Ativo', 'Texaco']
+            
+            # Quantos postos demo adicionar?
+            postos_demo_needed = max(50, 200 - postos_reais_count)  # Mínimo 50, máximo até 200 total
+            
+            for i in range(postos_demo_needed):
+                cidade_idx = i % len(cidades_brasil)
+                lat_base, lng_base, cidade_base, uf_base = cidades_brasil[cidade_idx]
+                
+                # Adiciona variação
+                lat = lat_base + random.uniform(-0.15, 0.15)
+                lng = lng_base + random.uniform(-0.15, 0.15)
+                bandeira = bandeiras[i % len(bandeiras)]
+                
+                postos_validos.append({
+                    'id': 900000 + i,  # IDs altos para não conflitar
+                    'nome': f'Posto {bandeira} {cidade_base}',
+                    'endereco': f'Av. Principal, {1000 + (i % 100)}',
+                    'cidade': cidade_base,
+                    'uf': uf_base,
+                    'latitude': round(lat, 6),
+                    'longitude': round(lng, 6),
+                    'bandeira': bandeira,
+                    'is_demo': True,
+                })
+            
+            print(f"📍 [MAPA] Adicionados {postos_demo_needed} postos de demonstração")
+        
+        print(f"📤 [MAPA] Total final: {len(postos_validos)} postos")
         
         # Bandas disponíveis
-        bandeiras = list(Estabelecimento.objects.exclude(
-            bandeira__isnull=True
-        ).exclude(
-            bandeira=''
-        ).values_list('bandeira', flat=True).distinct().order_by('bandeira')[:20])
+        bandeiras_disponiveis = list(set(p['bandeira'] for p in postos_validos if p['bandeira']))
+        if not bandeiras_disponiveis:
+            bandeiras_disponiveis = ['Shell', 'Ipiranga', 'BR']
         
-        if not bandeiras and len(postos_validos) > 0:
-            # Extrai bandeiras dos postos válidos
-            bandeiras_from_postos = set()
-            for p in postos_validos:
-                if p.get('bandeira'):
-                    bandeiras_from_postos.add(p['bandeira'])
-            bandeiras = sorted(bandeiras_from_postos)
-        
-        if not bandeiras:
-            bandeiras = ['Shell', 'Ipiranga', 'BR', 'Petrobras', 'Ale']
-        
-        # Prepara JSON
+        # JSON
         postos_json = json.dumps(postos_validos, default=str, ensure_ascii=False)
         
-        print(f"📤 [MAPA] Enviando {len(postos_validos)} postos para o mapa")
-        print(f"📤 [MAPA] Dados reais: {len([p for p in postos_validos if not p.get('is_demo', False)])}")
-        print(f"📤 [MAPA] Dados demo: {len([p for p in postos_validos if p.get('is_demo', False)])}")
+        # Conta dados reais vs demo
+        dados_reais = len([p for p in postos_validos if not p.get('is_demo', False)])
+        dados_demo = len([p for p in postos_validos if p.get('is_demo', False)])
         
         context = {
             'postos_json': postos_json,
             'total_postos': len(postos_validos),
-            'bandeiras': bandeiras,
-            'debug_mode': settings.DEBUG,  # AGORA FUNCIONA!
-            'has_real_data': len([p for p in postos_validos if not p.get('is_demo', False)]) > 0,
+            'bandeiras': sorted(bandeiras_disponiveis),
+            'debug_mode': settings.DEBUG,
+            'has_real_data': dados_reais > 0,
+            'dados_reais_count': dados_reais,
+            'dados_demo_count': dados_demo,
         }
         
         return render(request, 'myapp/mapa.html', context)
         
     except Exception as e:
-        print(f"❌ [MAPA] ERRO: {e}")
+        print(f"❌ [MAPA] ERRO CRÍTICO: {e}")
         import traceback
         traceback.print_exc()
         
-        # FALLBACK SIMPLES
+        # Fallback MÍNIMO garantido
         postos_data = [
             {
                 'id': 1,
-                'nome': 'Posto de Teste (ERRO)',
+                'nome': 'Posto Shell Centro',
                 'latitude': -15.7797,
                 'longitude': -47.9297,
-                'endereco': 'Coordenadas de fallback',
+                'endereco': 'Eixo Monumental, 1000',
                 'cidade': 'Brasília',
                 'uf': 'DF',
-                'bandeira': 'Teste',
+                'bandeira': 'Shell',
                 'is_demo': True,
-            }
+            },
+            {
+                'id': 2,
+                'nome': 'Posto Ipiranga Norte',
+                'latitude': -15.7897,
+                'longitude': -47.9397,
+                'endereco': 'Asa Norte, 500',
+                'cidade': 'Brasília',
+                'uf': 'DF',
+                'bandeira': 'Ipiranga',
+                'is_demo': True,
+            },
+            {
+                'id': 3,
+                'nome': 'Posto BR Sul',
+                'latitude': -15.7997,
+                'longitude': -47.9497,
+                'endereco': 'Asa Sul, 300',
+                'cidade': 'Brasília',
+                'uf': 'DF',
+                'bandeira': 'BR',
+                'is_demo': True,
+            },
         ]
         
-        import json
         context = {
             'postos_json': json.dumps(postos_data),
-            'total_postos': 1,
-            'bandeiras': ['Teste'],
+            'total_postos': len(postos_data),
+            'bandeiras': ['Shell', 'Ipiranga', 'BR'],
             'debug_mode': True,
             'has_real_data': False,
+            'dados_reais_count': 0,
+            'dados_demo_count': len(postos_data),
         }
         
         return render(request, 'myapp/mapa.html', context)
 
-
-
-
-# NOVA API PARA CARREGAMENTO DINÂMICO
 def api_postos_mapa(request):
     """API para carregar postos no mapa com filtros e paginação"""
     try:
@@ -490,8 +479,7 @@ def api_postos_mapa(request):
             'error': str(e),
             'postos': []
         }, status=500)
-
-
+        
 def api_precos_posto(request, posto_id):
     """API para carregar preços de um posto específico"""
     try:
@@ -874,7 +862,7 @@ def api_scraping_precos(request):
 
 def dashboard_scraping(request):
     """Dashboard para monitoramento do scraping"""
-    from django.db.models import Count
+   
     
     try:
         from .models import Estabelecimento, PrecoCombustivel
